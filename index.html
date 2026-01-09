@@ -6,162 +6,138 @@
     <title>INGCO DO'MBIROBOD</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <script type="module">
+        // Firebase modullarini CDN orqali yuklash
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // Siz yuborgan Firebase konfiguratsiyasi
+        const firebaseConfig = {
+            apiKey: "AIzaSyAcb8ZZIVtL1ELFA4ubFGHJHkyywClDK8I",
+            authDomain: "ingco-dombrabad.firebaseapp.com",
+            projectId: "ingco-dombrabad",
+            storageBucket: "ingco-dombrabad.firebasestorage.app",
+            messagingSenderId: "1005593055316",
+            appId: "1:1005593055316:web:1bc5f4d0ffd784c1ae9dc1",
+            measurementId: "G-15RR0XR2LZ"
+        };
+
+        // Firebase-ni ishga tushirish
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Mahsulotlarni bazadan real vaqtda o'qish
+        const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
+        onSnapshot(q, (snapshot) => {
+            const list = document.getElementById('product-list');
+            list.innerHTML = "";
+            snapshot.forEach((doc) => {
+                const p = doc.data();
+                const discountTag = p.discount > 0 ? `<div class="discount">-${p.discount}%</div>` : "";
+                list.innerHTML += `
+                    <div class="card">
+                        ${discountTag}
+                        <img src="${p.img}" onerror="this.src='https://via.placeholder.com/150?text=INGCO'">
+                        <h4>${p.name}</h4>
+                        <div class="price">${Number(p.price).toLocaleString()} so'm</div>
+                        <button class="btn-main" onclick="addToCart('${p.name}', ${p.price})">Savatga</button>
+                    </div>`;
+            });
+        });
+
+        // Mahsulot qo'shish funksiyasi (Admin Panel uchun)
+        window.addNewProduct = async function() {
+            const name = document.getElementById('p-name').value;
+            const price = document.getElementById('p-price').value;
+            const img = document.getElementById('p-img').value;
+            const discount = document.getElementById('p-disc').value || 0;
+
+            if(!name || !price || !img) return alert("Nom, narx va rasm linkini kiriting!");
+
+            try {
+                await addDoc(collection(db, "products"), {
+                    name, price, img, discount: Number(discount),
+                    createdAt: new Date()
+                });
+                alert("Mahsulot bazaga qo'shildi!");
+                document.getElementById('admin-modal').style.display = 'none';
+                // Formani tozalash
+                document.getElementById('p-name').value = "";
+                document.getElementById('p-price').value = "";
+                document.getElementById('p-img').value = "";
+            } catch (e) { 
+                alert("Xatolik: " + e.message); 
+            }
+        }
+    </script>
+
     <style>
         :root { --ingco-yellow: #FBB03B; --ingco-black: #1A1A1B; }
-        body { font-family: 'Arial', sans-serif; margin: 0; background: #fdfdfd; padding-bottom: 80px; }
-        
-        /* Ixcham Header */
-        header { 
-            background: var(--ingco-black); 
-            color: var(--ingco-yellow); 
-            padding: 10px; 
-            text-align: center; 
-            font-size: 14px; 
-            font-weight: bold;
-            border-bottom: 2px solid var(--ingco-yellow);
-            position: sticky; top: 0; z-index: 100; 
-        }
-
-        /* Kataloglar */
-        .categories { display: flex; overflow-x: auto; padding: 10px; gap: 8px; background: #fff; border-bottom: 1px solid #eee; }
-        .cat-item { padding: 6px 12px; background: #333; color: white; border-radius: 4px; white-space: nowrap; font-size: 12px; }
-        .cat-item.active { background: var(--ingco-yellow); color: #000; }
-
-        /* Mahsulotlar */
+        body { font-family: sans-serif; margin: 0; background: #fdfdfd; padding-bottom: 80px; }
+        header { background: var(--ingco-black); color: var(--ingco-yellow); padding: 12px; text-align: center; font-weight: bold; border-bottom: 2px solid var(--ingco-yellow); position: sticky; top: 0; z-index: 100; }
         .container { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px; }
         .card { background: white; border-radius: 8px; padding: 10px; position: relative; border: 1px solid #ddd; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .card img { width: 100%; height: 110px; object-fit: contain; }
-        
-        /* Yurakcha */
-        .fav-icon { position: absolute; top: 8px; right: 8px; color: #ccc; font-size: 18px; cursor: pointer; }
-        .fav-icon.active { color: #FF4444; }
-
-        .discount { position: absolute; top: 8px; left: 8px; background: #FF0000; color: white; padding: 2px 5px; border-radius: 4px; font-size: 10px; font-weight: bold; }
-        .card h4 { font-size: 13px; margin: 8px 0 5px 0; color: #333; height: 32px; overflow: hidden; }
-        .price { font-weight: bold; color: #000; font-size: 15px; }
-        .old-price { text-decoration: line-through; color: #888; font-size: 11px; }
-
-        /* Savatcha va Login */
-        .page { display: none; padding: 15px; }
-        .page.active { display: block; }
-        .input-group { margin-bottom: 10px; }
-        input, select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
-        .btn-main { background: var(--ingco-yellow); color: #000; border: none; padding: 12px; width: 100%; font-weight: bold; border-radius: 6px; margin-top: 10px; }
-
-        /* Pastki Navigatsiya */
+        .discount { position: absolute; top: 5px; left: 5px; background: red; color: white; padding: 2px 5px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+        .btn-main { background: var(--ingco-yellow); color: #000; border: none; padding: 10px; width: 100%; font-weight: bold; border-radius: 6px; margin-top: 5px; cursor: pointer; }
         .bottom-nav { position: fixed; bottom: 0; width: 100%; background: var(--ingco-black); display: flex; padding: 10px 0; border-top: 2px solid var(--ingco-yellow); }
         .nav-link { text-align: center; color: #888; font-size: 10px; text-decoration: none; flex: 1; }
-        .nav-link i { font-size: 18px; display: block; margin-bottom: 3px; }
         .nav-link.active { color: var(--ingco-yellow); }
+        .page { display: none; padding: 15px; }
+        .page.active { display: block; }
+        .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:1000; padding:20px; box-sizing:border-box; overflow-y:auto; }
+        input { width:100%; padding:12px; margin:8px 0; border:1px solid #ccc; border-radius:6px; box-sizing: border-box; }
     </style>
 </head>
 <body>
 
-<header id="header-title">INGCO DO'MBIROBOD</header>
+<header>INGCO DO'MBIROBOD</header>
 
 <div id="home-page" class="page active">
-    <div class="categories">
-        <div class="cat-item active">Barcha uskunalar</div>
-        <div class="cat-item">Perforatorlar</div>
-        <div class="cat-item">Drellar</div>
-        <div class="cat-item">Akkumulyatorli</div>
-    </div>
-    <div class="container">
-        <div class="card">
-            <span class="discount">-10%</span>
-            <i class="fa fa-heart fav-icon" onclick="toggleFav(this, 'RH150028')"></i>
-            <img src="https://ingcostore.uz/images/perforator.jpg" onerror="this.src='https://via.placeholder.com/150?text=INGCO'">
-            <h4>RH150028 1500W</h4>
-            <div class="old-price">1,450,000 so'm</div>
-            <div class="price">1,305,000 so'm</div>
-            <button class="btn-main" onclick="addToCart('RH150028', 1305000)">Savatga</button>
+    <div class="container" id="product-list">
         </div>
-    </div>
 </div>
 
-<div id="cart-page" class="page">
-    <h3>Savatcha</h3>
-    <div id="cart-list">Savatingiz bo'sh.</div>
-    <div class="input-group" style="margin-top:20px;">
-        <input type="text" id="order-name" placeholder="Ismingiz">
-        <input type="tel" id="order-phone" placeholder="Telefon raqam">
-        <input type="text" id="order-promo" placeholder="Promokod">
-        <select id="order-pay">
-            <option value="Karta">Karta (Payme/Click)</option>
-            <option value="Naqd">Naqd pul</option>
-            <option value="Nasiya">Nasiya savdo</option>
-            <option value="Perechisleniye">Perechisleniye</option>
-        </select>
-        <button class="btn-main" onclick="sendOrder()">Buyurtmani tasdiqlash</button>
-    </div>
-</div>
-
-<div id="fav-page" class="page">
-    <h3>Tanlangan Mahsulotlar</h3>
-    <div id="fav-list">Hech narsa yo'q.</div>
+<div id="admin-modal" class="modal">
+    <h3>Yangi mahsulot qo'shish</h3>
+    <input type="text" id="p-name" placeholder="Mahsulot nomi">
+    <input type="number" id="p-price" placeholder="Narxi (faqat raqam)">
+    <input type="text" id="p-img" placeholder="Rasm linki (URL)">
+    <input type="number" id="p-disc" placeholder="Chegirma % (ixtiyoriy)">
+    <button class="btn-main" onclick="addNewProduct()">BAZAGA SAQLASH</button>
+    <button onclick="document.getElementById('admin-modal').style.display='none'" style="width:100%; border:none; background:none; color:red; margin-top:15px; font-weight:bold;">BEKOR QILISH</button>
 </div>
 
 <div id="profile-page" class="page">
-    <h3>Kirish</h3>
-    <div id="login-step-1">
-        <p>Telegram raqamingizni kiriting:</p>
-        <input type="tel" id="user-phone" placeholder="+998XXXXXXXXX">
-        <button class="btn-main" onclick="sendCode()">Kodni olish</button>
-        <button class="btn-main" style="background: white; border: 1px solid #ddd; margin-top: 10px;">
-            <i class="fab fa-google"></i> Google orqali kirish
-        </button>
-    </div>
-    <div id="login-step-2" style="display:none;">
-        <p>Tasdiqlash kodini kiriting:</p>
-        <input type="number" id="verify-code" placeholder="0000" style="text-align:center; letter-spacing:5px;">
-        <button class="btn-main" onclick="verifyLogin()">Tasdiqlash</button>
+    <h3>Admin Boshqaruvi</h3>
+    <div style="background: #eee; padding: 20px; border-radius: 10px; text-align: center;">
+        <p>Yangi mahsulotlarni ushbu tugma orqali qo'shishingiz mumkin:</p>
+        <button class="btn-main" onclick="document.getElementById('admin-modal').style.display='block'">+ MAHSULOT QO'SHISH</button>
     </div>
 </div>
 
 <nav class="bottom-nav">
-    <a href="#" class="nav-link active" onclick="switchPage('home-page', 'INGCO DO\'MBIROBOD', this)"><i class="fa fa-th-large"></i>Bosh Sahifa</a>
-    <a href="#" class="nav-link" onclick="switchPage('cart-page', 'Savatcha', this)"><i class="fa fa-shopping-cart"></i>Savatcha</a>
-    <a href="#" class="nav-link" onclick="switchPage('fav-page', 'Tanlanganlar', this)"><i class="fa fa-heart"></i>Tanlanganlar</a>
-    <a href="#" class="nav-link" onclick="switchPage('profile-page', 'Profil', this)"><i class="fa fa-user-circle"></i>Profil</a>
+    <a href="#" class="nav-link active" onclick="switchPage('home-page', this)"><i class="fa fa-th-large" style="display:block; font-size:18px;"></i> Bosh Sahifa</a>
+    <a href="#" class="nav-link" onclick="switchPage('profile-page', this)"><i class="fa fa-user-circle" style="display:block; font-size:18px;"></i> Admin</a>
 </nav>
 
 <script>
     let tg = window.Telegram.WebApp;
     tg.expand();
-    let genCode = null;
 
-    function switchPage(pageId, title, el) {
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        document.getElementById(pageId).classList.add('active');
-        document.getElementById('header-title').innerText = title;
-        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+    function switchPage(p, el) {
+        document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
+        document.getElementById(p).classList.add('active');
+        document.querySelectorAll('.nav-link').forEach(x => x.classList.remove('active'));
         el.classList.add('active');
         tg.HapticFeedback.impactOccurred('light');
     }
 
-    function toggleFav(el, name) {
-        el.classList.toggle('active');
-        tg.HapticFeedback.impactOccurred('medium');
-    }
-
-    function sendCode() {
-        let phone = document.getElementById('user-phone').value;
-        if(phone.length < 9) return alert("Raqamni to'g'ri kiriting");
-        genCode = Math.floor(1000 + Math.random() * 9000);
-        // Botga kodni yuborish haqida signal
-        tg.sendData(JSON.stringify({action: "login_code", phone: phone, code: genCode}));
-        document.getElementById('login-step-1').style.display = 'none';
-        document.getElementById('login-step-2').style.display = 'block';
-    }
-
-    function verifyLogin() {
-        let code = document.getElementById('verify-code').value;
-        if(code == genCode) {
-            alert("Xush kelibsiz!");
-        } else {
-            alert("Kod xato!");
-        }
+    function addToCart(n, p) {
+        tg.HapticFeedback.notificationOccurred('success');
+        alert(n + " savatga qo'shildi!");
     }
 </script>
 </body>
-                                                                                         </html>
+</html>

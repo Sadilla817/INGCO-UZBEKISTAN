@@ -1,19 +1,206 @@
-// Foydalanuvchi ma'lumotlarini olish
-const user = tg.initDataUnsafe?.user;
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>INGCO DO'MBIROBOD</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// Agar kirgan odam admin bo'lmasa, Admin tugmasini o'chirib tashlash
-if (!user || user.id !== ADMIN_ID) {
-    const adminLink = document.querySelector('a[onclick*="profile-page"]');
-    if (adminLink) {
-        adminLink.style.display = 'none'; // Pastki menyudan yo'qotish
+        const firebaseConfig = {
+            apiKey: "AIzaSyAcb8ZZIVtL1ELFA4ubFGHJHkyywClDK8I",
+            authDomain: "ingco-dombrabad.firebaseapp.com",
+            projectId: "ingco-dombrabad",
+            storageBucket: "ingco-dombrabad.firebasestorage.app",
+            messagingSenderId: "1005593055316",
+            appId: "1:1005593055316:web:1bc5f4d0ffd784c1ae9dc1",
+            measurementId: "G-15RR0XR2LZ"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Ma'lumotlarni yuklash va filtrlash
+        window.loadProducts = (category = 'Barchasi') => {
+            const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
+            onSnapshot(q, (snapshot) => {
+                const list = document.getElementById('product-list');
+                list.innerHTML = "";
+                snapshot.forEach((doc) => {
+                    const p = doc.data();
+                    if(category === 'Barchasi' || p.cat === category) {
+                        list.innerHTML += `
+                            <div class="card">
+                                <i class="fa fa-heart fav-icon" onclick="toggleFav(this, '${p.name}')"></i>
+                                <img src="${p.img}" onerror="this.src='https://via.placeholder.com/150?text=INGCO'">
+                                <h4>${p.name}</h4>
+                                <div class="price">${Number(p.price).toLocaleString()} so'm</div>
+                                <button class="btn-main" onclick="addToCart('${p.name}', ${p.price})">Savatga</button>
+                            </div>`;
+                    }
+                });
+            });
+        }
+        window.loadProducts();
+
+        // Yangi mahsulot qo'shish
+        window.addNewProduct = async function() {
+            const name = document.getElementById('p-name').value;
+            const price = document.getElementById('p-price').value;
+            const img = document.getElementById('p-img').value;
+            const cat = document.getElementById('p-cat').value;
+            if(!name || !price || !img) return alert("Hamma maydonni to'ldiring!");
+            try {
+                await addDoc(collection(db, "products"), { name, price, img, cat, createdAt: new Date() });
+                alert("Muvaffaqiyatli qo'shildi!");
+                document.getElementById('admin-modal').style.display='none';
+            } catch (e) { alert("Xatolik: " + e.message); }
+        }
+    </script>
+
+    <style>
+        :root { --ingco-yellow: #FBB03B; --ingco-black: #1A1A1B; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f8f8f8; padding-bottom: 80px; }
+        header { background: var(--ingco-black); color: var(--ingco-yellow); padding: 12px; text-align: center; font-weight: bold; border-bottom: 2px solid var(--ingco-yellow); position: sticky; top: 0; z-index: 100; text-transform: uppercase; letter-spacing: 1px; }
+        
+        /* Kataloglar satri */
+        .cat-scroll { display: flex; overflow-x: auto; padding: 10px; gap: 8px; background: white; border-bottom: 1px solid #ddd; scrollbar-width: none; }
+        .cat-scroll::-webkit-scrollbar { display: none; }
+        .cat-btn { padding: 8px 16px; background: #333; color: white; border-radius: 20px; border: none; font-size: 12px; white-space: nowrap; transition: 0.3s; }
+        .cat-btn.active { background: var(--ingco-yellow); color: black; font-weight: bold; }
+
+        /* Mahsulot kartochkalari */
+        .container { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px; }
+        .card { background: white; border-radius: 12px; padding: 12px; position: relative; border: 1px solid #eee; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .card img { width: 100%; height: 120px; object-fit: contain; margin-bottom: 8px; }
+        .fav-icon { position: absolute; top: 10px; right: 10px; color: #ccc; font-size: 18px; cursor: pointer; }
+        .fav-icon.active { color: #e74c3c; }
+        h4 { margin: 5px 0; font-size: 13px; color: #333; height: 32px; overflow: hidden; }
+        .price { font-weight: 800; color: #000; font-size: 14px; margin-bottom: 8px; }
+        
+        .btn-main { background: var(--ingco-yellow); border: none; width: 100%; padding: 10px; border-radius: 8px; font-weight: bold; font-size: 13px; cursor: pointer; transition: 0.2s; }
+        .btn-main:active { transform: scale(0.96); }
+        
+        /* Navigatsiya */
+        .bottom-nav { position: fixed; bottom: 0; width: 100%; background: var(--ingco-black); display: flex; padding: 10px 0; border-top: 2px solid var(--ingco-yellow); z-index: 1000; }
+        .nav-link { text-align: center; color: #888; font-size: 10px; text-decoration: none; flex: 1; transition: 0.3s; }
+        .nav-link i { font-size: 20px; margin-bottom: 4px; display: block; }
+        .nav-link.active { color: var(--ingco-yellow); }
+        
+        /* Sahifalar */
+        .page { display: none; padding: 15px; animation: fadeIn 0.3s ease; }
+        .page.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Modal */
+        .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:2000; padding:20px; box-sizing: border-box; }
+        input, select { width:100%; padding:14px; margin:10px 0; border:1px solid #ddd; border-radius:8px; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<header id="page-title">INGCO DO'MBIROBOD</header>
+
+<div id="home-page" class="page active">
+    <div class="cat-scroll">
+        <button class="cat-btn active" onclick="filterCat('Barchasi', this)">Barchasi</button>
+        <button class="cat-btn" onclick="filterCat('Perforator', this)">Perforator</button>
+        <button class="cat-btn" onclick="filterCat('Bolgarka', this)">Bolgarka</button>
+        <button class="cat-btn" onclick="filterCat('Drellar', this)">Drellar</button>
+        <button class="cat-btn" onclick="filterCat('Akkumulyatorli', this)">Akkumulyatorli</button>
+    </div>
+    <div class="container" id="product-list"></div>
+</div>
+
+<div id="catalog-page" class="page">
+    <h3>Barcha bo'limlar</h3>
+    <input type="text" placeholder="Mahsulot qidirish..." onkeyup="searchProducts(this.value)">
+    <div style="margin-top: 20px; color: #666;">Katalog bo'limlari tez orada to'ldiriladi...</div>
+</div>
+
+<div id="fav-page" class="page">
+    <h3>Sizga yoqqanlar</h3>
+    <div id="fav-list" style="text-align: center; color: #999; margin-top: 60px;">
+        <i class="fa fa-heart" style="font-size: 40px; margin-bottom: 10px;"></i>
+        <p>Hozircha hech narsa yo'q</p>
+    </div>
+</div>
+
+<div id="cart-page" class="page">
+    <h3>Savat</h3>
+    <div id="cart-list" style="text-align: center; color: #999; margin-top: 60px;">
+        <i class="fa fa-shopping-basket" style="font-size: 40px; margin-bottom: 10px;"></i>
+        <p>Savatchangiz bo'sh</p>
+    </div>
+    <button class="btn-main" style="position: fixed; bottom: 85px; left: 15px; width: calc(100% - 30px);">RASMIYLASHTIRISH</button>
+</div>
+
+<div id="admin-page" class="page">
+    <h3>Admin Panel</h3>
+    <div style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #ddd; text-align: center;">
+        <p>Yangi mahsulotni bazaga qo'shish:</p>
+        <button class="btn-main" onclick="document.getElementById('admin-modal').style.display='block'">+ MAHSULOT QO'SHISH</button>
+    </div>
+</div>
+
+<div id="admin-modal" class="modal">
+    <h3>Yangi mahsulot ma'lumotlari</h3>
+    <input type="text" id="p-name" placeholder="Nomi (masalan: Perforator 800W)">
+    <input type="number" id="p-price" placeholder="Narxi (faqat raqam)">
+    <input type="text" id="p-img" placeholder="Rasm URL linki">
+    <select id="p-cat">
+        <option value="Perforator">Perforator</option>
+        <option value="Bolgarka">Bolgarka</option>
+        <option value="Drellar">Drellar</option>
+        <option value="Akkumulyatorli">Akkumulyatorli</option>
+    </select>
+    <button class="btn-main" onclick="addNewProduct()">BAZAGA SAQLASH</button>
+    <button onclick="document.getElementById('admin-modal').style.display='none'" style="width:100%; border:none; background:none; color:red; margin-top:20px; font-weight:bold;">YOPISH</button>
+</div>
+
+<nav class="bottom-nav">
+    <a href="#" class="nav-link active" onclick="switchPage('home-page', 'INGCO TOOLS', this)"><i class="fa fa-home"></i>Dizayn</a>
+    <a href="#" class="nav-link" onclick="switchPage('catalog-page', 'KATALOG', this)"><i class="fa fa-search"></i>Katalog</a>
+    <a href="#" class="nav-link" onclick="switchPage('fav-page', 'TANLANGANLAR', this)"><i class="fa fa-heart"></i>Yoqqanlar</a>
+    <a href="#" class="nav-link" onclick="switchPage('cart-page', 'SAVATCHA', this)"><i class="fa fa-shopping-cart"></i>Savat</a>
+    <a href="#" id="admin-nav-link" class="nav-link" onclick="switchPage('admin-page', 'ADMIN PANEL', this)" style="display: none;"><i class="fa fa-user-shield"></i>Admin</a>
+</nav>
+
+<script>
+    let tg = window.Telegram.WebApp;
+    tg.expand();
+
+    // ADMIN TEKSHIRUVI
+    const ADMIN_ID = 5667696089; // O'zingizning ID raqamingizni tekshiring
+    const user = tg.initDataUnsafe?.user;
+
+    if (user && user.id === ADMIN_ID) {
+        document.getElementById('admin-nav-link').style.display = 'block';
     }
-}
-    function switchPage(p, el) {
-        document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
-        document.getElementById(p).classList.add('active');
-        document.querySelectorAll('.nav-link').forEach(x => x.classList.remove('active'));
+
+    function switchPage(pageId, title, el) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+        document.getElementById('page-title').innerText = title;
+        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
         el.classList.add('active');
         tg.HapticFeedback.impactOccurred('light');
+    }
+
+    function filterCat(c, el) {
+        document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+        el.classList.add('active');
+        window.loadProducts(c);
+        tg.HapticFeedback.impactOccurred('medium');
+    }
+
+    function toggleFav(el, name) {
+        el.classList.toggle('active');
+        tg.HapticFeedback.impactOccurred('medium');
     }
 
     function addToCart(n, p) {
@@ -22,4 +209,4 @@ if (!user || user.id !== ADMIN_ID) {
     }
 </script>
 </body>
-</html>
+        </html>

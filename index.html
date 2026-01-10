@@ -125,7 +125,19 @@
 <script>
     let tg = window.Telegram.WebApp;
     tg.expand();
+// O'zingizning Telegram ID raqamingizni shu yerga yozing
+const ADMIN_ID = 5667696089; 
 
+// Foydalanuvchi ma'lumotlarini olish
+const user = tg.initDataUnsafe?.user;
+
+// Agar kirgan odam admin bo'lmasa, Admin tugmasini o'chirib tashlash
+if (!user || user.id !== ADMIN_ID) {
+    const adminLink = document.querySelector('a[onclick*="profile-page"]');
+    if (adminLink) {
+        adminLink.style.display = 'none'; // Pastki menyudan yo'qotish
+    }
+}
     function switchPage(p, el) {
         document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
         document.getElementById(p).classList.add('active');

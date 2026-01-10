@@ -3,139 +3,151 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Do'kon va Admin Panel</title>
+    <title>INGCO Store</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, push, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyB7mIOGY-bdNLVTzflXOl3t9bDLaQiLbKs",
+            authDomain: "ingco-store.firebaseapp.com",
+            databaseURL: "https://ingco-store-default-rtdb.firebaseio.com",
+            projectId: "ingco-store",
+            storageBucket: "ingco-store.firebasestorage.app",
+            messagingSenderId: "286206400336",
+            appId: "1:286206400336:web:f39161a02e514512d3fe55"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // --- ADMIN FUNKSIYALARI ---
+        window.addProduct = function() {
+            const name = document.getElementById('p_name').value;
+            const oldP = document.getElementById('p_old_price').value;
+            const newP = document.getElementById('p_new_price').value;
+            const img = document.getElementById('p_img_url').value; // Hozircha URL orqali
+
+            if(name && newP && img) {
+                push(ref(db, 'products'), {
+                    name, oldP, newP, img, fav: false
+                }).then(() => {
+                    alert("Tavar qo'shildi!");
+                    document.getElementById('add-form').reset();
+                });
+            } else { alert("Ma'lumotlarni to'ldiring!"); }
+        }
+
+        // --- MAHSULOTLARNI CHIQARISH ---
+        const productList = document.getElementById('product-list');
+        onValue(ref(db, 'products'), (snapshot) => {
+            productList.innerHTML = '';
+            const data = snapshot.val();
+            for (let id in data) {
+                productList.innerHTML += `
+                    <div class="product-card">
+                        <img src="${data[id].img}" alt="img">
+                        <p><b>${data[id].name}</b></p>
+                        <p class="old-price">${data[id].oldP} so'm</p>
+                        <p class="new-price">${data[id].newP} so'm</p>
+                        <button class="btn-main" onclick="addToCart('${data[id].name}', ${data[id].newP})">🛒 Savatga</button>
+                    </div>`;
+            }
+        });
+
+        // --- BUYURTMA BERISH ---
+        window.sendOrder = function() {
+            const region = document.getElementById('region_select').value;
+            const phone = document.getElementById('user_phone').value;
+            if(region && phone) {
+                push(ref(db, 'orders'), {
+                    user_id: window.currentUserId,
+                    phone: phone,
+                    region: region,
+                    date: new Date().toLocaleString()
+                }).then(() => {
+                    Telegram.WebApp.showAlert("Buyurtma qabul qilindi! Admin bog'lanadi.");
+                });
+            } else { alert("Xatolik!"); }
+        }
+    </script>
+
     <style>
-        :root { --tg-theme-button-color: #0088cc; }
-        body { font-family: sans-serif; margin: 0; padding: 0; background: #f4f4f4; color: #333; }
-        .container { padding-bottom: 80px; }
+        :root { --tg-theme-button-color: #f39c12; }
+        body { font-family: sans-serif; margin: 0; background: #f4f4f4; padding-bottom: 80px; }
         .page { display: none; padding: 15px; }
         .active { display: block; }
-        
-        /* Katalog */
         .catalog-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .product-card { background: #fff; padding: 10px; border-radius: 12px; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .product-card img { width: 100%; height: 120px; object-fit: cover; border-radius: 8px; }
-        .old-price { text-decoration: line-through; color: #999; font-size: 12px; margin: 5px 0 0; }
+        .product-card { background: #fff; padding: 10px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .product-card img { width: 100%; height: 110px; object-fit: contain; }
+        .old-price { text-decoration: line-through; color: #999; font-size: 11px; margin: 0; }
         .new-price { font-weight: bold; color: #e67e22; margin: 0; }
-        
-        /* Pastki menyu */
-        .nav-bar { position: fixed; bottom: 0; width: 100%; background: #fff; display: flex; justify-content: space-around; padding: 12px 0; border-top: 1px solid #ddd; z-index: 1000; }
-        .nav-item { text-align: center; font-size: 10px; color: #888; cursor: pointer; flex: 1; }
-        .nav-item i { font-size: 20px; margin-bottom: 4px; display: block; }
-        .nav-item.active-nav { color: var(--tg-theme-button-color); }
-
-        /* Admin tugmasi (Faqat sizga ko'rinadi) */
-        #admin-link { display: none; color: #d35400; }
-
-        /* Forma elementlari */
-        input, select, button { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
-        .btn-main { background: var(--tg-theme-button-color); color: white; border: none; font-weight: bold; }
-        .error-border { border: 2px solid red !important; }
+        .nav-bar { position: fixed; bottom: 0; width: 100%; background: #fff; display: flex; padding: 10px 0; border-top: 1px solid #ddd; }
+        .nav-item { flex: 1; text-align: center; font-size: 10px; color: #888; }
+        .active-nav { color: var(--tg-theme-button-color); }
+        input, select { width: 100%; padding: 10px; margin: 5px 0; border-radius: 8px; border: 1px solid #ddd; }
+        .btn-main { background: var(--tg-theme-button-color); color: #000; border: none; padding: 10px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div id="home" class="page active">
-        <h3>🏠 Katalog</h3>
-        <div class="catalog-grid" id="product-list">
-            <div class="product-card">
-                <img src="https://via.placeholder.com/150" alt="product">
-                <p style="margin: 5px 0;">Maxsulot nomi</p>
-                <p class="old-price">180,000 so'm</p>
-                <p class="new-price">150,000 so'm</p>
-                <button class="btn-main" style="padding: 5px; font-size: 12px;">🛒 Savatga</button>
-            </div>
+<div id="home" class="page active">
+    <h3>🛠 INGCO Katalog</h3>
+    <div class="catalog-grid" id="product-list">
         </div>
-    </div>
+</div>
 
-    <div id="saved" class="page"><h3>❤️ Saqlanganlar</h3><p>Hozircha bo'sh...</p></div>
+<div id="cart" class="page">
+    <h3>🛒 Savat va Buyurtma</h3>
+    <select id="region_select">
+        <option value="">Viloyatni tanlang</option>
+        <option value="Toshkent">Toshkent</option>
+        <option value="Andijon">Andijon</option>
+    </select>
+    <input type="tel" id="user_phone" placeholder="90 123 45 67">
+    <button class="btn-main" onclick="sendOrder()">Buyurtmani tasdiqlash</button>
+</div>
 
-    <div id="cart" class="page">
-        <h3>🛒 Savat</h3>
-        <div id="cart-content">Savat bo'sh</div>
-        <hr>
-        <h4>Buyurtma berish</h4>
-        <select id="region_select">
-            <option value="">Viloyatni tanlang...</option>
-            <option value="Toshkent">Toshkent</option>
-            <option value="Samarqand">Samarqand</option>
-            <option value="Buxoro">Buxoro</option>
-        </select>
-        <input type="tel" id="user_phone" placeholder="Telefon (masalan: 901234567)">
-        <button class="btn-main" onclick="validateOrder()">Buyurtma berish</button>
-    </div>
-
-    <div id="profile" class="page">
-        <h3>👤 Profil</h3>
-        <div id="user-info">Login qilingan: <b id="user-id-display"></b></div>
-        <hr>
-        <div id="admin-panel" style="display: none;">
-            <h3 style="color: #d35400;">⚙️ Admin Panel</h3>
-            <p>Tavar qo'shish:</p>
-            <input type="file" id="p_img" accept="image/*">
+<div id="profile" class="page">
+    <div id="admin-panel" style="display: none;">
+        <h3 style="color: #e67e22;">⚙️ Admin Panel</h3>
+        <form id="add-form">
+            <input type="text" id="p_img_url" placeholder="Rasm URL manzili (jpg/png)">
             <input type="text" id="p_name" placeholder="Tavar nomi">
             <input type="number" id="p_old_price" placeholder="Eski narxi">
             <input type="number" id="p_new_price" placeholder="Yangi narxi">
-            <button class="btn-main" onclick="alert('Saqlandi (Backend kerak)')">Tavarni saqlash</button>
-        </div>
+            <button type="button" class="btn-main" onclick="addProduct()">Tavarni bazaga qo'shish</button>
+        </form>
     </div>
+    <p>Foydalanuvchi ID: <b id="u_id"></b></p>
 </div>
 
 <div class="nav-bar">
-    <div class="nav-item active-nav" onclick="showPage('home', this)"><i class="fa-solid fa-house"></i>UY</div>
-    <div class="nav-item" onclick="showPage('saved', this)"><i class="fa-solid fa-heart"></i>SAQLANGANLAR</div>
-    <div class="nav-item" onclick="showPage('cart', this)"><i class="fa-solid fa-cart-shopping"></i>SAVAT</div>
-    <div class="nav-item" id="admin-tab" onclick="showPage('profile', this)"><i class="fa-solid fa-user"></i>PROFIL</div>
+    <div class="nav-item active-nav" onclick="showPage('home', this)"><i class="fa fa-house"></i><br>UY</div>
+    <div class="nav-item" onclick="showPage('cart', this)"><i class="fa fa-cart-shopping"></i><br>SAVAT</div>
+    <div class="nav-item" id="admin-tab" onclick="showPage('profile', this)"><i class="fa fa-user"></i><br>PROFIL</div>
 </div>
 
 <script>
     let tg = window.Telegram.WebApp;
     tg.expand();
-    
-    // Sizning ID raqamingiz
     const ADMIN_ID = 5667696089;
-    const currentUserId = tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : 0;
-
-    // ID ni ko'rsatish
-    document.getElementById('user-id-display').innerText = currentUserId;
-
-    // Adminlikni tekshirish
-    if (currentUserId === ADMIN_ID) {
+    window.currentUserId = tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : "TestUser";
+    
+    document.getElementById('u_id').innerText = window.currentUserId;
+    if(window.currentUserId == ADMIN_ID) {
         document.getElementById('admin-panel').style.display = 'block';
-        document.getElementById('admin-tab').innerHTML = '<i class="fa-solid fa-lock"></i>ADMIN';
-        document.getElementById('admin-tab').style.color = '#d35400';
+        document.getElementById('admin-tab').style.color = 'orange';
     }
 
-    function showPage(pageId, el) {
+    function showPage(pId, el) {
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        document.getElementById(pageId).classList.add('active');
+        document.getElementById(pId).classList.add('active');
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active-nav'));
         el.classList.add('active-nav');
     }
-
-    function validateOrder() {
-        let region = document.getElementById('region_select');
-        let phone = document.getElementById('user_phone');
-        let valid = true;
-
-        if (!region.value) { region.classList.add('error-border'); valid = false; }
-        else { region.classList.remove('error-border'); }
-
-        if (phone.value.length < 9) { phone.classList.add('error-border'); valid = false; }
-        else { phone.classList.remove('error-border'); }
-
-        if (!valid) {
-            tg.showAlert("Xatolik! Ma'lumotlarni to'liq kiriting.");
-        } else {
-            tg.showConfirm("Buyurtma berishni tasdiqlaysizmi?", (confirm) => {
-                if(confirm) tg.close();
-            });
-        }
-    }
 </script>
-
 </body>
 </html>

@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>INGCO Store</title>
+    <title>INGCO Official Store</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <script src="https://unpkg.com/imask"></script>
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, push, onValue, remove, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyB7mIOGY-bdNLVTzflXOl3t9bDLaQiLbKs",
@@ -29,108 +28,144 @@
 
         window.cart = [];
         window.favorites = JSON.parse(localStorage.getItem('ingco_favs')) || [];
-        
-        // Viloyat va tumanlar ma'lumotlari
+        let allProducts = {};
+
+        // VILOYAT VA TUMANLAR
         const locations = {
-            "Toshkent sh.": ["Yunusobod", "Chilonzor", "Mirzo Ulug'bek", "Olmazor", "Sergeli"],
-            "Toshkent vil.": ["Angren", "Chirchiq", "Olmaliq", "Bekobod", "Yangiyo'l"],
-            "Andijon": ["Andijon sh.", "Asaka", "Shahrixon", "Xo'jaobod", "Paxtaobod"],
-            "Farg'ona": ["Farg'ona sh.", "Qo'qon", "Marg'ilon", "Quva", "Oltiariq"],
-            "Namangan": ["Namangan sh.", "Chust", "Uychi", "Kosonsoy", "Pop"],
-            "Samarqand": ["Samarqand sh.", "Kattaqo'rg'on", "Urgut", "Bulung'ur"],
-            "Buxoro": ["Buxoro sh.", "Gijduvon", "Kogon", "Qorako'l"],
-            "Navoiy": ["Navoiy sh.", "Zarafshon", "Karmana", "Qiziltepa"],
-            "Qashqadaryo": ["Qarshi sh.", "Shahrisabz", "Kitob", "Koson"],
-            "Surxondaryo": ["Termiz sh.", "Denov", "Sherobod", "Jarqo'rg'on"],
-            "Jizzax": ["Jizzax sh.", "Zomin", "G'allaorol", "Do'stlik"],
-            "Sirdaryo": ["Guliston sh.", "Shirin", "Yangiyer", "Sardoba"],
-            "Xorazm": ["Urganch sh.", "Xiva", "Gurlan", "Bog'ot"],
-            "Qoraqalpog'iston": ["Nukus sh.", "Xo'jayli", "Qo'ng'irot", "Beruniy"]
+            "Toshkent sh.": ["Yunusobod", "Chilonzor", "Mirzo Ulug'bek", "Olmazor", "Sergeli", "Yakkasaroy", "Bektemir", "Mirobod", "Uchtepa", "Shayxontohur", "Yashnobod"],
+            "Andijon": ["Andijon sh.", "Asaka", "Shahrixon", "Xo'jaobod", "Paxtaobod", "Baliqchi", "Oltinko'l", "Marhamat"],
+            "Farg'ona": ["Farg'ona sh.", "Qo'qon", "Marg'ilon", "Quva", "Oltiariq", "Rishton", "Beshariq"],
+            "Samarqand": ["Samarqand sh.", "Kattaqo'rg'on", "Urgut", "Bulung'ur", "Ishtixon", "Jomboy"],
+            "Namangan": ["Namangan sh.", "Chust", "Uychi", "Kosonsoy", "Pop", "Uchqo'rg'on"],
+            "Buxoro": ["Buxoro sh.", "Gijduvon", "Kogon", "Qorako'l", "Olot", "Vobkent"],
+            "Navoiy": ["Navoiy sh.", "Zarafshon", "Karmana", "Qiziltepa", "Nurota"],
+            "Qashqadaryo": ["Qarshi sh.", "Shahrisabz", "Kitob", "Koson", "Muborak", "G'uzor"],
+            "Surxondaryo": ["Termiz sh.", "Denov", "Sherobod", "Jarqo'rg'on", "Angor", "Boysun"],
+            "Jizzax": ["Jizzax sh.", "Zomin", "G'allaorol", "Do'stlik", "Arnasoy"],
+            "Sirdaryo": ["Guliston sh.", "Shirin", "Yangiyer", "Sardoba", "Boyovut"],
+            "Xorazm": ["Urganch sh.", "Xiva", "Gurlan", "Bog'ot", "Hazorasp"],
+            "Qoraqalpog'iston": ["Nukus sh.", "Xo'jayli", "Qo'ng'irot", "Beruniy", "Ellikqala"]
         };
 
-        // BAZADAN MAHSULOTLARNI OQISH
+        // MAHSULOTLARNI CHIQARISH
         onValue(ref(db, 'products'), (snapshot) => {
-            const data = snapshot.val();
+            allProducts = snapshot.val() || {};
+            renderProducts();
+        });
+
+        window.renderProducts = function() {
             const list = document.getElementById('product-list');
-            list.innerHTML = '';
-            for (let id in data) {
+            const wishList = document.getElementById('wish-list');
+            list.innerHTML = ''; wishList.innerHTML = '';
+
+            for (let id in allProducts) {
                 const isFav = window.favorites.includes(id);
-                list.innerHTML += `
+                const itemHtml = `
                     <div class="product-card">
                         ${window.currentUserId == adminChatId ? `<i class="fa fa-trash delete-icon" onclick="deleteProduct('${id}')"></i>` : ''}
                         <i class="fa${isFav ? 's' : 'r'} fa-heart wish-icon ${isFav ? 'active' : ''}" onclick="toggleWish('${id}')"></i>
-                        <img src="${data[id].img}" onerror="this.src='https://via.placeholder.com/150?text=INGCO+TOOLS'">
-                        <p class="p-name">${data[id].name}</p>
-                        <p class="new-price">${Number(data[id].newP).toLocaleString()} so'm</p>
-                        <button class="btn-main" onclick="addToCart('${data[id].name}', ${data[id].newP})">🛒 Savatga</button>
+                        <img src="${allProducts[id].img}" onerror="this.src='https://via.placeholder.com/150?text=INGCO'">
+                        <p><b>${allProducts[id].name}</b></p>
+                        <p class="price">${Number(allProducts[id].newP).toLocaleString()} so'm</p>
+                        <button class="btn-main" onclick="addToCart('${allProducts[id].name}', ${allProducts[id].newP})">🛒 Savatga</button>
                     </div>`;
-            }
-        });
-
-        // MANZILNI BOSHQARISH
-        window.updateDistricts = function() {
-            const vil = document.getElementById('region_select').value;
-            const tumBox = document.getElementById('district_select');
-            tumBox.innerHTML = '<option value="">Tumanni tanlang</option>';
-            if(locations[vil]) {
-                locations[vil].forEach(t => {
-                    tumBox.innerHTML += `<option value="${t}">${t}</option>`;
-                });
+                list.innerHTML += itemHtml;
+                if(isFav) wishList.innerHTML += itemHtml;
             }
         };
 
-        // PROFIL: TELEFONNI SAQLASH
-        window.saveProfile = function() {
-            const phone = document.getElementById('prof_phone').value;
-            if(phone.length > 10) {
-                set(ref(db, 'users/' + window.currentUserId), {
-                    phone: phone,
-                    name: Telegram.WebApp.initDataUnsafe.user?.first_name || "Mijoz"
-                });
-                localStorage.setItem('user_phone', phone);
-                alert("Ma'lumotlar saqlandi!");
-            } else { alert("Telefon noto'g'ri!"); }
+        // TANLANGANLAR
+        window.toggleWish = function(id) {
+            if(window.favorites.includes(id)) {
+                window.favorites = window.favorites.filter(f => f !== id);
+            } else {
+                window.favorites.push(id);
+                Telegram.WebApp.HapticFeedback.impactOccurred('light');
+            }
+            localStorage.setItem('ingco_favs', JSON.stringify(window.favorites));
+            renderProducts();
         };
 
-        // BUYURTMA YUBORISH
-        window.sendOrder = function() {
-            const vil = document.getElementById('region_select').value;
-            const tum = document.getElementById('district_select').value;
-            const phone = document.getElementById('user_phone').value;
+        // SAVAT
+        window.addToCart = function(name, price) {
+            window.cart.push({name, price});
+            document.getElementById('cart-count').innerText = window.cart.length;
+            Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+        };
+
+        window.renderCart = function() {
+            const cartItems = document.getElementById('cart-items');
+            const totalSum = document.getElementById('total-sum');
+            cartItems.innerHTML = ''; let total = 0;
             
-            if(vil && tum && phone.length > 10 && window.cart.length > 0) {
-                let items = window.cart.map(i => `• ${i.name}`).join('\n');
-                let total = window.cart.reduce((a, b) => a + b.price, 0);
-                const msg = `🔔 YANGI BUYURTMA!\n\n👤 Mijoz: ${window.currentUserId}\n📞 Tel: ${phone}\n📍 Manzil: ${vil}, ${tum}\n\n📦 Tavarlar:\n${items}\n\n💰 Jami: ${total.toLocaleString()} so'm`;
-                
-                fetch(`https://api.telegram.org/bot${botToken}/sendMessage?chat_id=${adminChatId}&text=${encodeURIComponent(msg)}`)
-                .then(() => {
-                    alert("Buyurtmangiz qabul qilindi!");
-                    window.cart = [];
-                    showPage('home', document.getElementById('nav-home'));
-                });
-            } else { alert("Ma'lumotlarni to'ldiring!"); }
+            window.cart.forEach((item, index) => {
+                total += item.price;
+                cartItems.innerHTML += `<div class="cart-row"><span>${item.name}</span><b>${item.price.toLocaleString()}</b> <i class="fa fa-times" onclick="removeFromCart(${index})"></i></div>`;
+            });
+            totalSum.innerText = total.toLocaleString();
+        };
+
+        window.removeFromCart = function(index) {
+            window.cart.splice(index, 1);
+            document.getElementById('cart-count').innerText = window.cart.length;
+            renderCart();
+        };
+
+        // ADMIN FUNKSIYALARI
+        window.addProduct = function() {
+            const name = document.getElementById('p_name').value;
+            const price = document.getElementById('p_price').value;
+            const img = document.getElementById('p_img').value;
+            if(name && price && img) {
+                push(ref(db, 'products'), { name: name, newP: price, img: img });
+                alert("Tavar qo'shildi!");
+                document.getElementById('add-form').reset();
+            } else { alert("Hamma joyni to'ldiring!"); }
+        };
+
+        window.deleteProduct = function(id) {
+            if(confirm("O'chirilsinmi?")) remove(ref(db, `products/${id}`));
+        };
+
+        window.updateDistricts = function() {
+            const vil = document.getElementById('region').value;
+            const tum = document.getElementById('district');
+            tum.innerHTML = '<option value="">Tuman tanlang</option>';
+            if(locations[vil]) locations[vil].forEach(t => tum.innerHTML += `<option value="${t}">${t}</option>`);
+        };
+
+        window.sendOrder = function() {
+            const vil = document.getElementById('region').value;
+            const tum = document.getElementById('district').value;
+            const tel = document.getElementById('tel').value;
+            if(vil && tum && tel && window.cart.length > 0) {
+                let txt = `📦 YANGI BUYURTMA!\n📍 Manzil: ${vil}, ${tum}\n📞 Tel: ${tel}\n\n`;
+                window.cart.forEach(i => txt += `• ${i.name}\n`);
+                txt += `\n💰 Jami: ${document.getElementById('total-sum').innerText} so'm`;
+                fetch(`https://api.telegram.org/bot${botToken}/sendMessage?chat_id=${adminChatId}&text=${encodeURIComponent(txt)}`)
+                .then(() => { alert("Yuborildi!"); window.cart = []; showPage('home', document.getElementById('nav-home')); });
+            }
         };
     </script>
 
     <style>
-        :root { --main: #f39c12; --bg: #1a1a1a; --card: #2c2c2c; }
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f0f2f5; padding-bottom: 70px; }
+        :root { --main: #f39c12; }
+        body { font-family: sans-serif; margin: 0; background: #f4f4f4; padding-bottom: 70px; }
         .page { display: none; padding: 15px; }
         .active { display: block; }
         .catalog-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .product-card { background: #fff; padding: 10px; border-radius: 12px; text-align: center; position: relative; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .product-card img { width: 100%; height: 120px; object-fit: contain; margin-bottom: 8px; }
-        .p-name { font-weight: 600; font-size: 14px; margin: 5px 0; height: 35px; overflow: hidden; }
-        .new-price { color: #e67e22; font-weight: bold; font-size: 16px; margin-bottom: 8px; }
-        .nav-bar { position: fixed; bottom: 0; width: 100%; background: #fff; display: flex; border-top: 1px solid #ddd; z-index: 1000; }
-        .nav-item { flex: 1; text-align: center; padding: 10px 0; font-size: 10px; color: #888; }
-        .active-nav { color: var(--main); font-weight: bold; }
-        .btn-main { background: var(--main); color: #000; border: none; padding: 12px; width: 100%; border-radius: 10px; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        input, select { width: 100%; padding: 14px; margin: 8px 0; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; font-size: 15px; }
-        .wish-icon { position: absolute; top: 10px; right: 10px; font-size: 20px; color: #ccc; }
+        .product-card { background: #fff; padding: 10px; border-radius: 10px; text-align: center; position: relative; }
+        .product-card img { width: 100%; height: 110px; object-fit: contain; }
+        .wish-icon { position: absolute; top: 8px; right: 8px; font-size: 20px; color: #ddd; }
         .wish-icon.active { color: #e74c3c; }
-        .delete-icon { position: absolute; top: 10px; left: 10px; color: #e74c3c; }
+        .delete-icon { position: absolute; top: 8px; left: 8px; color: red; }
+        .nav-bar { position: fixed; bottom: 0; width: 100%; background: #fff; display: flex; border-top: 1px solid #ddd; }
+        .nav-item { flex: 1; text-align: center; padding: 10px 0; font-size: 10px; color: #888; position: relative; }
+        .active-nav { color: var(--main); }
+        #cart-count { position: absolute; top: 2px; right: 25%; background: red; color: #fff; border-radius: 50%; padding: 2px 6px; font-size: 9px; }
+        .btn-main { background: var(--main); color: #000; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; width: 100%; }
+        .cart-row { display: flex; justify-content: space-between; background: #fff; padding: 10px; margin-bottom: 5px; border-radius: 8px; }
+        input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
     </style>
 </head>
 <body>
@@ -139,84 +174,53 @@
     <div class="catalog-grid" id="product-list"></div>
 </div>
 
+<div id="wishlist-page" class="page">
+    <h3>❤️ Tanlanganlar</h3>
+    <div class="catalog-grid" id="wish-list"></div>
+</div>
+
 <div id="cart-page" class="page">
-    <h3>🛒 Buyurtma berish</h3>
-    <div id="cart-summary" style="background:#fff; padding:15px; border-radius:12px; margin-bottom:15px;"></div>
-    
-    <label>📍 Manzil (Viloyat)</label>
-    <select id="region_select" onchange="updateDistricts()">
-        <option value="">Viloyatni tanlang</option>
-        <option value="Toshkent sh.">Toshkent sh.</option>
-        <option value="Toshkent vil.">Toshkent vil.</option>
-        <option value="Andijon">Andijon</option>
-        <option value="Farg'ona">Farg'ona</option>
-        <option value="Namangan">Namangan</option>
-        <option value="Samarqand">Samarqand</option>
-        <option value="Buxoro">Buxoro</option>
-        <option value="Navoiy">Navoiy</option>
-        <option value="Qashqadaryo">Qashqadaryo</option>
-        <option value="Surxondaryo">Surxondaryo</option>
-        <option value="Jizzax">Jizzax</option>
-        <option value="Sirdaryo">Sirdaryo</option>
-        <option value="Xorazm">Xorazm</option>
-        <option value="Qoraqalpog'iston">Qoraqalpog'iston</option>
+    <h3>🛒 Savat</h3>
+    <div id="cart-items"></div>
+    <h4>Jami: <span id="total-sum">0</span> so'm</h4>
+    <hr>
+    <select id="region" onchange="updateDistricts()"><option value="">Viloyat...</option>
+        <option value="Toshkent sh.">Toshkent sh.</option><option value="Andijon">Andijon</option><option value="Farg'ona">Farg'ona</option><option value="Samarqand">Samarqand</option>
     </select>
-
-    <label>🏘 Tuman</label>
-    <select id="district_select">
-        <option value="">Avval viloyatni tanlang</option>
-    </select>
-
-    <label>📞 Telefon raqamingiz</label>
-    <input type="tel" id="user_phone" placeholder="+998 90 123 45 67">
-    
-    <button class="btn-main" onclick="sendOrder()" style="margin-top:15px;">BUYURTMANI TASDIQLASH</button>
+    <select id="district"><option value="">Tuman...</option></select>
+    <input type="tel" id="tel" placeholder="+998 90 123 45 67">
+    <button class="btn-main" onclick="sendOrder()">BUYURTMA BERISH</button>
 </div>
 
 <div id="profile" class="page">
-    <div style="text-align:center; padding:20px; background:#fff; border-radius:15px;">
-        <i class="fa fa-user-circle" style="font-size:60px; color:#ddd;"></i>
-        <h3>Mening profilim</h3>
-        <p>ID: <b id="u_id"></b></p>
-        <input type="tel" id="prof_phone" placeholder="+998 90 123 45 67">
-        <button class="btn-main" onclick="saveProfile()">RAQAMNI SAQLASH</button>
-    </div>
-
-    <div id="admin-panel" style="display:none; margin-top:20px; background:#fff; padding:15px; border-radius:15px;">
-        <h3 style="color:#e67e22;">⚙️ Admin Panel</h3>
-        <input type="text" id="p_img_url" placeholder="Rasm havolasi (URL)">
-        <input type="text" id="p_name" placeholder="Mahsulot nomi">
-        <input type="number" id="p_new_price" placeholder="Narxi (faqat son)">
-        <button class="btn-main" onclick="addProduct()">BAZAGA QO'SHISH</button>
+    <div id="admin-panel" style="display:none;">
+        <h3>⚙️ Admin Panel</h3>
+        <form id="add-form">
+            <input type="text" id="p_img" placeholder="Rasm URL">
+            <input type="text" id="p_name" placeholder="Tavar nomi">
+            <input type="number" id="p_price" placeholder="Narxi">
+            <button type="button" class="btn-main" onclick="addProduct()">QO'SHISH</button>
+        </form>
     </div>
 </div>
 
 <div class="nav-bar">
     <div class="nav-item active-nav" id="nav-home" onclick="showPage('home', this)"><i class="fa fa-home"></i><br>Katalog</div>
-    <div class="nav-item" onclick="showPage('cart-page', this)"><i class="fa fa-shopping-cart"></i><br>Savat</div>
-    <div class="nav-item" id="admin-tab" onclick="showPage('profile', this)"><i class="fa fa-user"></i><br>Profil</div>
+    <div class="nav-item" onclick="showPage('wishlist-page', this)"><i class="fa fa-heart"></i><br>Sevimli</div>
+    <div class="nav-item" onclick="showPage('cart-page', this)"><span id="cart-count">0</span><i class="fa fa-shopping-cart"></i><br>Savat</div>
+    <div class="nav-item" id="admin-tab" style="display:none;" onclick="showPage('profile', this)"><i class="fa fa-user-cog"></i><br>Admin</div>
 </div>
 
 <script>
     let tg = window.Telegram.WebApp;
     tg.expand();
+    window.currentUserId = tg.initDataUnsafe.user?.id || "AdminTest";
     const adminChatId = "5667696089";
-    window.currentUserId = tg.initDataUnsafe.user?.id || "TestUser";
-    document.getElementById('u_id').innerText = window.currentUserId;
-    
-    // Admin panelni faqat sizga ko'rsatish
-    if(window.currentUserId == adminChatId) document.getElementById('admin-panel').style.display = 'block';
 
-    // Telefon maskasi
-    const maskOptions = { mask: '+{998} 00 000 00 00' };
-    IMask(document.getElementById('user_phone'), maskOptions);
-    IMask(document.getElementById('prof_phone'), maskOptions);
-
-    // Oldin saqlangan telefonni yuklash
-    const savedPhone = localStorage.getItem('user_phone');
-    if(savedPhone) {
-        document.getElementById('user_phone').value = savedPhone;
-        document.getElementById('prof_phone').value = savedPhone;
+    // ADMIN BO'LSA ADMIN TABNI KO'RSATISH
+    if(window.currentUserId == adminChatId) {
+        document.getElementById('admin-tab').style.display = 'block';
+        document.getElementById('admin-panel').style.display = 'block';
     }
 
     window.showPage = function(pId, el) {
@@ -224,7 +228,9 @@
         document.getElementById(pId).classList.add('active');
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active-nav'));
         el.classList.add('active-nav');
-    }
+        if(pId === 'cart-page') renderCart();
+        if(pId === 'wishlist-page') renderProducts();
+    };
 </script>
 </body>
 </html>

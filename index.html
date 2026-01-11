@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>INGCO Professional Store</title>
+    <title>INGCO Store</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, push, onValue, remove, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyB7mIOGY-bdNLVTzflXOl3t9bDLaQiLbKs",
@@ -31,42 +31,39 @@
         let allProducts = {};
         let allCategories = [];
 
-        // KATEGORIYALARNI O'QISH
-        onValue(ref(db, 'categories'), (snapshot) => {
-            const data = snapshot.val();
-            allCategories = data ? Object.values(data) : [];
-            renderCategoryButtons();
-            updateAdminCategorySelect();
-        });
-
         // MAHSULOTLARNI O'QISH
         onValue(ref(db, 'products'), (snapshot) => {
             allProducts = snapshot.val() || {};
             renderProducts();
         });
 
-        // 1. KATEGORIYA TUGMALARINI CHIZISH (MIJOZ UCHUN)
-        window.renderCategoryButtons = function() {
+        // KATEGORIYALARNI O'QISH
+        onValue(ref(db, 'categories'), (snapshot) => {
+            const data = snapshot.val();
+            allCategories = data ? Object.values(data) : [];
+            renderCategoryUI();
+        });
+
+        function renderCategoryUI() {
             const scrollBox = document.getElementById('category-scroll');
-            scrollBox.innerHTML = `<button class="cat-btn ${window.currentCategory === 'Hammasi' ? 'active-cat' : ''}" onclick="filterCategory('Hammasi')">Hammasi</button>`;
+            const selectBox = document.getElementById('p_cat');
             
+            // Mijoz filtri
+            scrollBox.innerHTML = `<button class="cat-btn ${window.currentCategory === 'Hammasi' ? 'active-cat' : ''}" onclick="filterCategory('Hammasi')">Hammasi</button>`;
             allCategories.forEach(cat => {
                 scrollBox.innerHTML += `<button class="cat-btn ${window.currentCategory === cat ? 'active-cat' : ''}" onclick="filterCategory('${cat}')">${cat}</button>`;
             });
-        };
 
-        // 2. ADMIN PANELDA KATEGORIYA TANLASH RO'YXATINI YANGILASH
-        window.updateAdminCategorySelect = function() {
-            const select = document.getElementById('p_cat');
-            select.innerHTML = '<option value="">Kategoriyani tanlang</option>';
+            // Admin select
+            selectBox.innerHTML = '<option value="">Katalog tanlang</option>';
             allCategories.forEach(cat => {
-                select.innerHTML += `<option value="${cat}">${cat}</option>`;
+                selectBox.innerHTML += `<option value="${cat}">${cat}</option>`;
             });
-        };
+        }
 
         window.filterCategory = function(cat) {
             window.currentCategory = cat;
-            renderCategoryButtons();
+            renderCategoryUI();
             renderProducts();
         };
 
@@ -74,33 +71,29 @@
             const list = document.getElementById('product-list');
             list.innerHTML = '';
             for (let id in allProducts) {
-                const prod = allProducts[id];
-                if (window.currentCategory !== "Hammasi" && prod.category !== window.currentCategory) continue;
+                const p = allProducts[id];
+                if (window.currentCategory !== "Hammasi" && p.category !== window.currentCategory) continue;
                 
                 list.innerHTML += `
                     <div class="product-card">
-                        ${window.currentUserId == adminChatId ? `<i class="fa fa-trash delete-icon" onclick="deleteProduct('${id}')"></i>` : ''}
-                        <img src="${prod.img}" onerror="this.src='https://via.placeholder.com/150?text=INGCO'">
-                        <p class="p-name">${prod.name}</p>
-                        <p class="price">${Number(prod.newP).toLocaleString()} so'm</p>
-                        <button class="btn-main" onclick="addToCart('${prod.name}', ${prod.newP})">🛒 Savatga</button>
+                        ${tg.initDataUnsafe.user?.id == adminChatId ? `<i class="fa fa-trash delete-icon" onclick="deleteProduct('${id}')"></i>` : ''}
+                        <img src="${p.img}" onerror="this.src='https://via.placeholder.com/150?text=INGCO'">
+                        <p class="p-name">${p.name}</p>
+                        <p class="price">${Number(p.newP).toLocaleString()} so'm</p>
+                        <button class="btn-main" onclick="addToCart('${p.name}', ${p.newP})">🛒 Savatga</button>
                     </div>`;
             }
         };
 
-        // --- ADMIN FUNKSIYALARI ---
-        
-        // YANGI KATEGORIYA QO'SHISH
         window.addNewCategory = function() {
-            const newCat = document.getElementById('new_cat_name').value.trim();
-            if(newCat && !allCategories.includes(newCat)) {
-                push(ref(db, 'categories'), newCat);
-                document.getElementById('new_cat_name').value = '';
-                alert("Yangi katalog yaratildi!");
+            const name = document.getElementById('new_cat_input').value.trim();
+            if(name) {
+                push(ref(db, 'categories'), name);
+                document.getElementById('new_cat_input').value = '';
+                alert("Katalog qo'shildi!");
             }
         };
 
-        // TAVAR QO'SHISH
         window.addProduct = function() {
             const name = document.getElementById('p_name').value;
             const price = document.getElementById('p_price').value;
@@ -108,9 +101,9 @@
             const cat = document.getElementById('p_cat').value;
             if(name && price && img && cat) {
                 push(ref(db, 'products'), { name, newP: price, img, category: cat });
-                alert("Mahsulot qo'shildi!");
+                alert("Tavar qo'shildi!");
                 document.getElementById('add-form').reset();
-            } else { alert("Ma'lumotlar chala!"); }
+            } else { alert("Ma'lumotlar to'liq emas!"); }
         };
 
         window.deleteProduct = function(id) {
@@ -123,11 +116,29 @@
             Telegram.WebApp.HapticFeedback.notificationOccurred('success');
         };
 
+        window.renderCart = function() {
+            const box = document.getElementById('cart-items');
+            box.innerHTML = '';
+            let total = 0;
+            window.cart.forEach((item, index) => {
+                total += parseInt(item.price);
+                box.innerHTML += `<div class="cart-row"><span>${item.name}</span><b>${item.price.toLocaleString()}</b> <i class="fa fa-times" onclick="removeFromCart(${index})" style="color:red"></i></div>`;
+            });
+            document.getElementById('total-sum').innerText = total.toLocaleString();
+        };
+
+        window.removeFromCart = function(index) {
+            window.cart.splice(index, 1);
+            document.getElementById('cart-count').innerText = window.cart.length;
+            renderCart();
+        };
+
         window.showPage = function(pId, el) {
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
             document.getElementById(pId).classList.add('active');
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active-nav'));
             el.classList.add('active-nav');
+            if(pId === 'cart-page') renderCart();
         };
     </script>
 
@@ -136,68 +147,10 @@
         body { font-family: sans-serif; margin: 0; background: #f4f4f4; padding-bottom: 70px; }
         .page { display: none; padding: 15px; }
         .active { display: block; }
-        
-        .category-scroll { display: flex; overflow-x: auto; padding: 10px 0; gap: 8px; }
-        .cat-btn { background: #fff; border: 1px solid #ddd; padding: 7px 15px; border-radius: 20px; font-size: 13px; white-space: nowrap; }
-        .active-cat { background: var(--main); border-color: var(--main); font-weight: bold; }
-
+        .category-scroll { display: flex; overflow-x: auto; gap: 8px; padding: 10px 0; }
+        .cat-btn { background: #fff; border: 1px solid #ddd; padding: 7px 15px; border-radius: 20px; white-space: nowrap; }
+        .active-cat { background: var(--main); font-weight: bold; border-color: var(--main); }
         .catalog-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .product-card { background: #fff; padding: 10px; border-radius: 12px; text-align: center; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .product-card { background: #fff; padding: 10px; border-radius: 12px; text-align: center; position: relative; }
         .product-card img { width: 100%; height: 110px; object-fit: contain; }
-        .p-name { font-size: 13px; font-weight: bold; height: 32px; overflow: hidden; margin: 5px 0; }
-        .price { color: #d35400; font-weight: bold; margin-bottom: 8px; }
-        
-        .nav-bar { position: fixed; bottom: 0; width: 100%; background: #fff; display: flex; border-top: 1px solid #ddd; height: 60px; }
-        .nav-item { flex: 1; text-align: center; padding: 10px 0; font-size: 10px; color: #888; position: relative; }
-        .active-nav { color: var(--main); }
-        #cart-count { position: absolute; top: 5px; right: 25%; background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; }
-        
-        .admin-box { background: #fff; padding: 15px; border-radius: 15px; margin-bottom: 20px; border: 1px solid #e0e0e0; }
-        input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; }
-        .btn-main { background: var(--main); color: #000; border: none; padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; }
-        .delete-icon { position: absolute; top: 8px; left: 8px; color: #ff4d4d; font-size: 18px; }
-    </style>
-</head>
-<body>
-
-<div id="home" class="page active">
-    <div class="category-scroll" id="category-scroll"></div>
-    <div class="catalog-grid" id="product-list"></div>
-</div>
-
-<div id="profile" class="page">
-    <div id="admin-panel" style="display:none;">
-        <div class="admin-box">
-            <h4>📁 Katalog Yaratish</h4>
-            <input type="text" id="new_cat_name" placeholder="Katalog nomi (masalan: Akumulyatorli)">
-            <button class="btn-main" onclick="addNewCategory()">KATALOGNI SAQLASH</button>
-        </div>
-
-        <div class="admin-box">
-            <h4>📦 Mahsulot Qo'shish</h4>
-            <form id="add-form">
-                <select id="p_cat"></select>
-                <input type="text" id="p_img" placeholder="Rasm URL">
-                <input type="text" id="p_name" placeholder="Nomi">
-                <input type="number" id="p_price" placeholder="Narxi">
-                <button type="button" class="btn-main" onclick="addProduct()">BAZAGA QO'SHISH</button>
-            </form>
-        </div>
-    </div>
-</div>
-
-<div class="nav-bar">
-    <div class="nav-item active-nav" id="nav-home" onclick="showPage('home', this)"><i class="fa fa-home"></i><br>Katalog</div>
-    <div class="nav-item" id="admin-tab" style="display:none;" onclick="showPage('profile', this)"><i class="fa fa-user-cog"></i><br>Admin</div>
-</div>
-
-<script>
-    let tg = window.Telegram.WebApp;
-    tg.expand();
-    if(tg.initDataUnsafe.user?.id == "5667696089") {
-        document.getElementById('admin-tab').style.display = 'block';
-        document.getElementById('admin-panel').style.display = 'block';
-    }
-</script>
-</body>
-</html>
+        .p-name { font-size: 13px; font

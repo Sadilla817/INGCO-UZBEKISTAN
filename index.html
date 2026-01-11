@@ -24,124 +24,95 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         const adminChatId = "5667696089";
-        const botToken = "8546147813:AAHiZp8z236sJAwfItgM4yUFyijaMBHBP6U";
 
         window.cart = [];
-        window.currentCategory = "Hammasi";
-        const locations = {
-            "Toshkent sh.": ["Yunusobod", "Chilonzor", "Mirzo Ulug'bek", "Olmazor", "Sergeli", "Yakkasaroy", "Bektemir", "Mirobod", "Uchtepa", "Shayxontohur", "Yashnobod"],
-            "Toshkent vil.": ["Angren", "Chirchiq", "Olmaliq", "Bekobod", "Yangiyo'l", "Qibray", "Zangiota", "Bo'stonliq"],
-            "Andijon": ["Andijon sh.", "Asaka", "Shahrixon", "Xo'jaobod", "Paxtaobod", "Baliqchi", "Oltinko'l"],
-            "Farg'ona": ["Farg'ona sh.", "Qo'qon", "Marg'ilon", "Quva", "Oltiariq", "Rishton", "Beshariq"],
-            "Namangan": ["Namangan sh.", "Chust", "Uychi", "Kosonsoy", "Pop", "Uchqo'rg'on"],
-            "Samarqand": ["Samarqand sh.", "Kattaqo'rg'on", "Urgut", "Bulung'ur", "Ishtixon", "Jomboy"],
-            "Buxoro": ["Buxoro sh.", "Gijduvon", "Kogon", "Qorako'l", "Olot", "Vobkent"],
-            "Navoiy": ["Navoiy sh.", "Zarafshon", "Karmana", "Qiziltepa", "Nurota"],
-            "Qashqadaryo": ["Qarshi sh.", "Shahrisabz", "Kitob", "Koson", "Muborak", "G'uzor"],
-            "Surxondaryo": ["Termiz sh.", "Denov", "Sherobod", "Jarqo'rg'on", "Angor", "Boysun"],
-            "Jizzax": ["Jizzax sh.", "Zomin", "G'allaorol", "Do'stlik", "Arnasoy"],
-            "Sirdaryo": ["Guliston sh.", "Shirin", "Yangiyer", "Sardoba", "Boyovut"],
-            "Xorazm": ["Urganch sh.", "Xiva", "Gurlan", "Bog'ot", "Hazorasp"],
-            "Qoraqalpog'iston": ["Nukus sh.", "Xo'jayli", "Qo'ng'irot", "Beruniy", "Ellikqala"]
-        };
 
-        // MAHSULOTLARNI YUKLASH
+        // 1. MAHSULOTLAR VA KATEGORIYALAR (AVVALGI FUNKSIYALAR)
         onValue(ref(db, '/'), (snapshot) => {
             const data = snapshot.val() || {};
             renderUI(data.products || {}, data.categories || {});
+            renderNews(data.news || {});
         });
 
-        function renderUI(products, categories) {
-            const catBox = document.getElementById('category-scroll');
-            catBox.innerHTML = `<button class="cat-btn ${window.currentCategory === 'Hammasi' ? 'active-cat' : ''}" onclick="setCat('Hammasi')">Hammasi</button>`;
-            Object.values(categories).forEach(c => {
-                catBox.innerHTML += `<button class="cat-btn ${window.currentCategory === c ? 'active-cat' : ''}" onclick="setCat('${c}')">${c}</button>`;
-            });
+        // 2. YANGILIKLARNI CHIZISH
+        function renderNews(newsData) {
+            const newsBox = document.getElementById('news-list');
+            newsBox.innerHTML = '';
+            for (let id in newsData) {
+                const n = newsData[id];
+                newsBox.innerHTML += `
+                    <div class="news-card">
+                        ${window.myId == adminChatId ? `<i class="fa fa-trash delete-icon" onclick="delNews('${id}')"></i>` : ''}
+                        ${n.link.includes('mp4') || n.link.includes('video') ? 
+                            `<video src="${n.link}" controls style="width:100%; border-radius:10px;"></video>` : 
+                            `<img src="${n.link}" onerror="this.src='https://via.placeholder.com/300x150?text=Yangilik'">`}
+                        <h4>${n.title}</h4>
+                        <p>${n.desc}</p>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <b style="color:#d35400;">${Number(n.price).toLocaleString()} so'm</b>
+                            <button class="btn-main" style="width:auto; padding:5px 15px;" onclick="addToCart('${n.title}', ${n.price})">🛒+Savatcha</button>
+                        </div>
+                    </div>`;
+            }
+        }
 
+        // 3. ADMIN: YANGILIK QO'SHISH
+        window.addNews = () => {
+            const link = document.getElementById('n_link').value;
+            const title = document.getElementById('n_title').value;
+            const desc = document.getElementById('n_desc').value;
+            const price = document.getElementById('n_price').value;
+            if(link && title && desc && price) {
+                push(ref(db, 'news'), { link, title, desc, price });
+                alert("Yangilik e'lon qilindi!");
+                document.getElementById('news-form').reset();
+            } else { alert("Barcha maydonlarni to'ldiring!"); }
+        };
+
+        window.delNews = (id) => { if(confirm("O'chirish?")) remove(ref(db, `news/${id}`)); };
+
+        // --- AVVALGI FUNKSIYALARNING DAVOMI ---
+        function renderUI(products, categories) {
             const list = document.getElementById('product-list');
             list.innerHTML = '';
             for (let id in products) {
                 const p = products[id];
-                if (window.currentCategory !== "Hammasi" && p.category !== window.currentCategory) continue;
-                list.innerHTML += `
-                    <div class="product-card">
-                        ${window.myId == adminChatId ? `<i class="fa fa-trash delete-icon" onclick="delProd('${id}')"></i>` : ''}
-                        <img src="${p.img}" onerror="this.src='https://via.placeholder.com/150?text=INGCO'">
-                        <p class="p-name">${p.name}</p>
-                        <p class="price">${Number(p.newP).toLocaleString()} so'm</p>
-                        <button class="btn-main" onclick="addToCart('${p.name}', ${p.newP})">🛒 Savatga</button>
-                    </div>`;
+                list.innerHTML += `<div class="product-card">
+                    ${window.myId == adminChatId ? `<i class="fa fa-trash delete-icon" onclick="delProd('${id}')"></i>` : ''}
+                    <img src="${p.img}">
+                    <p class="p-name">${p.name}</p>
+                    <p class="price">${Number(p.newP).toLocaleString()} so'm</p>
+                    <button class="btn-main" onclick="addToCart('${p.name}', ${p.newP})">🛒 Savatga</button>
+                </div>`;
             }
-
+            // Admin select uchun kataloglarni yangilash
             const select = document.getElementById('p_cat');
             if(select) {
                 select.innerHTML = '<option value="">Katalog tanlang</option>';
-                Object.values(categories).forEach(c => {
-                    select.innerHTML += `<option value="${c}">${c}</option>`;
-                });
+                Object.values(categories).forEach(c => select.innerHTML += `<option value="${c}">${c}</option>`);
             }
         }
 
-        window.setCat = (c) => { window.currentCategory = c; onValue(ref(db, '/'), (s) => renderUI(s.val().products || {}, s.val().categories || {}), {onlyOnce: true}); };
-        
-        window.addToCart = (name, price) => {
-            window.cart.push({name, price});
+        window.addToCart = (n, p) => {
+            window.cart.push({name: n, price: p});
             document.getElementById('cart-count').innerText = window.cart.length;
             Telegram.WebApp.HapticFeedback.notificationOccurred('success');
         };
 
-        window.renderCart = () => {
-            const box = document.getElementById('cart-items');
-            box.innerHTML = '';
-            let total = 0;
-            window.cart.forEach((item, index) => {
-                total += item.price;
-                box.innerHTML += `<div class="cart-row"><span>${item.name}</span><b>${item.price.toLocaleString()}</b> <i class="fa fa-times" onclick="removeFromCart(${index})" style="color:red"></i></div>`;
-            });
-            document.getElementById('total-sum').innerText = total.toLocaleString();
+        window.showPage = (id, el) => {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active-nav'));
+            el.classList.add('active-nav');
         };
-
-        window.removeFromCart = (index) => {
-            window.cart.splice(index, 1);
-            document.getElementById('cart-count').innerText = window.cart.length;
-            renderCart();
-        };
-
-        window.updateDistricts = () => {
-            const vil = document.getElementById('region').value;
-            const tum = document.getElementById('district');
-            tum.innerHTML = '<option value="">Tuman...</option>';
-            if(locations[vil]) locations[vil].forEach(t => tum.innerHTML += `<option value="${t}">${t}</option>`);
-        };
-
-        window.sendOrder = () => {
-            const vil = document.getElementById('region').value;
-            const tum = document.getElementById('district').value;
-            const tel = document.getElementById('user_tel').value;
-            if(vil && tum && tel && window.cart.length > 0) {
-                let txt = `📦 BUYURTMA!\n📍 Manzil: ${vil}, ${tum}\n📞 Tel: ${tel}\n\n`;
-                window.cart.forEach(i => txt += `• ${i.name} - ${i.price.toLocaleString()}\n`);
-                txt += `\n💰 Jami: ${document.getElementById('total-sum').innerText} so'm`;
-                
-                fetch(`https://api.telegram.org/bot${botToken}/sendMessage?chat_id=${adminChatId}&text=${encodeURIComponent(txt)}`)
-                .then(() => { 
-                    alert("Buyurtmangiz yuborildi!"); 
-                    window.cart = []; 
-                    document.getElementById('cart-count').innerText = '0';
-                    showPage('home', document.getElementById('nav-home')); 
-                });
-            } else { alert("Ma'lumotlar to'liq emas!"); }
-        };
-
-        window.addCat = () => { const n = document.getElementById('new_cat').value; if(n) push(ref(db, 'categories'), n); document.getElementById('new_cat').value=''; };
+        
+        window.addCat = () => { const n = document.getElementById('new_cat').value; if(n) push(ref(db, 'categories'), n); };
         window.addProd = () => {
-            const n = document.getElementById('p_name').value;
-            const pr = document.getElementById('p_price').value;
-            const im = document.getElementById('p_img').value;
-            const ct = document.getElementById('p_cat').value;
-            if(n && pr && im && ct) { push(ref(db, 'products'), {name:n, newP:pr, img:im, category:ct}); alert("Qo'shildi!"); }
+            const n = document.getElementById('p_name').value, pr = document.getElementById('p_price').value, 
+                  im = document.getElementById('p_img').value, ct = document.getElementById('p_cat').value;
+            if(n && pr && im && ct) push(ref(db, 'products'), {name:n, newP:pr, img:im, category:ct});
         };
-        window.delProd = (id) => { if(confirm("O'chirish?")) remove(ref(db, `products/${id}`)); };
+        window.delProd = (id) => remove(ref(db, `products/${id}`));
     </script>
 
     <style>
@@ -149,77 +120,62 @@
         body { font-family: sans-serif; margin: 0; background: #f4f4f4; padding-bottom: 70px; }
         .page { display: none; padding: 15px; }
         .active { display: block; }
-        .category-scroll { display: flex; overflow-x: auto; gap: 8px; padding: 10px 0; }
-        .cat-btn { background: #fff; border: 1px solid #ddd; padding: 7px 15px; border-radius: 20px; white-space: nowrap; border: none; font-size: 13px; }
-        .active-cat { background: var(--main); font-weight: bold; }
+        .news-card { background: #fff; padding: 15px; border-radius: 15px; margin-bottom: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); position: relative; }
+        .news-card img { width: 100%; border-radius: 10px; margin-bottom: 10px; }
         .catalog-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .product-card { background: #fff; padding: 10px; border-radius: 12px; text-align: center; position: relative; }
         .product-card img { width: 100%; height: 110px; object-fit: contain; }
-        .p-name { font-size: 13px; font-weight: bold; margin: 5px 0; height: 32px; overflow: hidden; }
         .price { color: #d35400; font-weight: bold; }
-        .btn-main { background: var(--main); border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; margin-top: 5px; cursor: pointer; }
-        .nav-bar { position: fixed; bottom: 0; width: 100%; background: #fff; display: flex; border-top: 1px solid #ddd; height: 60px; z-index: 1000; }
-        .nav-item { flex: 1; text-align: center; padding: 10px 0; font-size: 10px; color: #888; position: relative; }
+        .btn-main { background: var(--main); border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .nav-bar { position: fixed; bottom: 0; width: 100%; background: #fff; display: flex; border-top: 1px solid #ddd; height: 65px; z-index: 1000; }
+        .nav-item { flex: 1; text-align: center; padding: 10px 0; font-size: 11px; color: #888; position: relative; }
         .active-nav { color: var(--main); }
-        #cart-count { position: absolute; top: 5px; right: 25%; background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; }
-        .cart-row { display: flex; justify-content: space-between; padding: 10px; background: #fff; margin-bottom: 5px; border-radius: 8px; }
-        input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; }
-        .delete-icon { position: absolute; top: 5px; left: 5px; color: red; }
+        #cart-count { position: absolute; top: 5px; right: 20%; background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; }
+        .delete-icon { position: absolute; top: 10px; left: 10px; color: red; background: #fff; border-radius: 50%; padding: 5px; }
+        input, select, textarea { width: 100%; padding: 12px; margin: 5px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
     </style>
 </head>
 <body>
 
 <div id="home" class="page active">
-    <div class="category-scroll" id="category-scroll"></div>
+    <div id="category-scroll" class="category-scroll"></div>
     <div class="catalog-grid" id="product-list"></div>
 </div>
 
-<div id="cart-page" class="page">
-    <h3>🛒 Savat</h3>
-    <div id="cart-items"></div>
-    <p style="text-align: right;">Jami: <b id="total-sum">0</b> so'm</p>
-    <hr>
-    <h4>Yetkazib berish manzili:</h4>
-    <select id="region" onchange="updateDistricts()">
-        <option value="">Viloyat...</option>
-        <option value="Toshkent sh.">Toshkent sh.</option>
-        <option value="Toshkent vil.">Toshkent vil.</option>
-        <option value="Andijon">Andijon</option>
-        <option value="Farg'ona">Farg'ona</option>
-        <option value="Namangan">Namangan</option>
-        <option value="Samarqand">Samarqand</option>
-        <option value="Buxoro">Buxoro</option>
-        <option value="Navoiy">Navoiy</option>
-        <option value="Qashqadaryo">Qashqadaryo</option>
-        <option value="Surxondaryo">Surxondaryo</option>
-        <option value="Jizzax">Jizzax</option>
-        <option value="Sirdaryo">Sirdaryo</option>
-        <option value="Xorazm">Xorazm</option>
-        <option value="Qoraqalpog'iston">Qoraqalpog'iston</option>
-    </select>
-    <select id="district"><option value="">Tuman...</option></select>
-    <input type="tel" id="user_tel" placeholder="+998 90 123 45 67">
-    <button class="btn-main" onclick="sendOrder()">TASDIQLASH</button>
+<div id="news-page" class="page">
+    <h3 style="text-align:center;"><i class="fa fa-bell"></i> Yangiliklar</h3>
+    <div id="news-list"></div>
 </div>
 
 <div id="profile" class="page">
     <div id="admin-panel" style="display:none;">
-        <h3>📁 Katalog Yarating</h3>
-        <input type="text" id="new_cat" placeholder="Katalog nomi">
-        <button class="btn-main" onclick="addCat()">SAQLASH</button>
+        <div style="background:#fff; padding:15px; border-radius:15px; border:2px solid var(--main);">
+            <h4>📢 Yangilik e'lon qilish</h4>
+            <form id="news-form">
+                <input type="text" id="n_link" placeholder="Rasm yoki Video linki">
+                <input type="text" id="n_title" placeholder="Sarlavha (Tavar nomi)">
+                <textarea id="n_desc" placeholder="Tavar haqida batafsil ma'lumot"></textarea>
+                <input type="number" id="n_price" placeholder="Narxi">
+                <button type="button" class="btn-main" onclick="addNews()">E'LON QILISH</button>
+            </form>
+        </div>
         <hr>
-        <h3>📦 Tavar Qo'shish</h3>
+        <h3>📁 Katalog & 📦 Tavar</h3>
+        <input type="text" id="new_cat" placeholder="Katalog nomi">
+        <button class="btn-main" onclick="addCat()">Katalog Qo'shish</button>
+        <hr>
         <select id="p_cat"></select>
-        <input type="text" id="p_img" placeholder="Rasm URL">
-        <input type="text" id="p_name" placeholder="Nomi">
+        <input type="text" id="p_img" placeholder="Tavar Rasm URL">
+        <input type="text" id="p_name" placeholder="Tavar Nomi">
         <input type="number" id="p_price" placeholder="Narxi">
-        <button type="button" class="btn-main" onclick="addProd()">QO'SHISH</button>
+        <button class="btn-main" onclick="addProd()">Tavar Qo'shish</button>
     </div>
 </div>
 
 <div class="nav-bar">
-    <div class="nav-item active-nav" id="nav-home" onclick="showPage('home', this)"><i class="fa fa-home"></i><br>Katalog</div>
-    <div class="nav-item" onclick="showPage('cart-page', this)"><span id="cart-count">0</span><i class="fa fa-shopping-cart"></i><br>Savat</div>
+    <div class="nav-item active-nav" onclick="showPage('home', this)"><i class="fa fa-th-large"></i><br>Katalog</div>
+    <div class="nav-item" onclick="showPage('news-page', this)"><i class="fa fa-bell"></i><br>Yangiliklar</div>
+    <div class="nav-item" onclick="alert('Savatga o\'ting')"><span id="cart-count">0</span><i class="fa fa-shopping-cart"></i><br>Savat</div>
     <div class="nav-item" id="admin-tab" style="display:none;" onclick="showPage('profile', this)"><i class="fa fa-user-cog"></i><br>Admin</div>
 </div>
 
@@ -231,13 +187,6 @@
         document.getElementById('admin-tab').style.display = 'block';
         document.getElementById('admin-panel').style.display = 'block';
     }
-    window.showPage = (id, el) => {
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        document.getElementById(id).classList.add('active');
-        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active-nav'));
-        el.classList.add('active-nav');
-        if(id === 'cart-page') renderCart();
-    };
 </script>
 </body>
 </html>

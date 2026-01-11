@@ -153,4 +153,69 @@
         .catalog-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .product-card { background: #fff; padding: 10px; border-radius: 12px; text-align: center; position: relative; }
         .product-card img { width: 100%; height: 110px; object-fit: contain; }
-        .p-name { font-size: 13px; font
+        .p-name { font-size: 13px; font-weight: bold; height: 32px; overflow: hidden; margin: 5px 0; }
+        .price { color: #d35400; font-weight: bold; }
+        .nav-bar { position: fixed; bottom: 0; width: 100%; background: #fff; display: flex; border-top: 1px solid #ddd; height: 60px; z-index: 1000; }
+        .nav-item { flex: 1; text-align: center; padding: 10px 0; font-size: 10px; color: #888; position: relative; }
+        .active-nav { color: var(--main); }
+        #cart-count { position: absolute; top: 5px; right: 25%; background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; }
+        .btn-main { background: var(--main); color: #000; border: none; padding: 12px; border-radius: 10px; font-weight: bold; width: 100%; cursor: pointer; }
+        .admin-box { background: #fff; padding: 15px; border-radius: 15px; margin-bottom: 15px; border: 1px solid #ddd; }
+        input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; }
+        .cart-row { display: flex; justify-content: space-between; padding: 10px; background: #fff; margin-bottom: 5px; border-radius: 8px; font-size: 13px; }
+        .delete-icon { position: absolute; top: 8px; left: 8px; color: red; z-index: 10; }
+    </style>
+</head>
+<body>
+
+<div id="home" class="page active">
+    <div class="category-scroll" id="category-scroll"></div>
+    <div class="catalog-grid" id="product-list"></div>
+</div>
+
+<div id="cart-page" class="page">
+    <h3>🛒 Savat</h3>
+    <div id="cart-items"></div>
+    <p>Jami: <b id="total-sum">0</b> so'm</p>
+    <hr>
+    <input type="tel" id="user_tel" placeholder="+998 90 123 45 67">
+    <button class="btn-main" onclick="alert('Tez orada buyurtma funksiyasi yangilanadi')">TASDIQLASH</button>
+</div>
+
+<div id="profile" class="page">
+    <div id="admin-panel" style="display:none;">
+        <div class="admin-box">
+            <h4>📁 Katalog Yarating</h4>
+            <input type="text" id="new_cat_input" placeholder="Katalog nomi">
+            <button class="btn-main" onclick="addNewCategory()">SAQLASH</button>
+        </div>
+        <div class="admin-box">
+            <h4>📦 Tavar Qo'shish</h4>
+            <form id="add-form">
+                <select id="p_cat"></select>
+                <input type="text" id="p_img" placeholder="Rasm URL">
+                <input type="text" id="p_name" placeholder="Nomi">
+                <input type="number" id="p_price" placeholder="Narxi">
+                <button type="button" class="btn-main" onclick="addProduct()">BAZAGA QO'SHISH</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="nav-bar">
+    <div class="nav-item active-nav" id="nav-home" onclick="showPage('home', this)"><i class="fa fa-home"></i><br>Uy</div>
+    <div class="nav-item" onclick="showPage('cart-page', this)"><span id="cart-count">0</span><i class="fa fa-shopping-cart"></i><br>Savat</div>
+    <div class="nav-item" id="admin-tab" style="display:none;" onclick="showPage('profile', this)"><i class="fa fa-user-cog"></i><br>Admin</div>
+</div>
+
+<script>
+    let tg = window.Telegram.WebApp;
+    tg.expand();
+    const adminChatId = "5667696089";
+    if(tg.initDataUnsafe.user?.id == adminChatId) {
+        document.getElementById('admin-tab').style.display = 'block';
+        document.getElementById('admin-panel').style.display = 'block';
+    }
+</script>
+</body>
+</html>

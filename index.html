@@ -27,7 +27,6 @@
 
         window.cart = [];
         
-        // O'zbekiston viloyat va tumanlari
         const regions = {
             "Toshkent sh.": ["Yunusobod", "Chilonzor", "Mirzo Ulug'bek", "Olmazor", "Sergeli", "Yakkasaroy", "Bektemir", "Mirobod", "Uchtepa", "Shayxontohur", "Yashnobod"],
             "Toshkent vil.": ["Angren", "Chirchiq", "Olmaliq", "Bekobod", "Yangiyo'l", "Qibray", "Zangiota", "Parkent"],
@@ -58,11 +57,11 @@
             for (let id in products) {
                 const p = products[id];
                 list.innerHTML += `<div class="product-card">
-                    ${window.myId == adminChatId ? `<i class="fa fa-trash delete-icon" onclick="delProd('${id}')"></i>` : ''}
+                    ${window.myId == adminChatId ? `<i class="fa fa-trash delete-icon" onclick="window.delProd('${id}')"></i>` : ''}
                     <img src="${p.img}">
                     <p><b>${p.name}</b></p>
                     <p class="price">${Number(p.price).toLocaleString()} so'm</p>
-                    <button class="btn-main" onclick="addToCart('${p.name}', ${p.price})">🛒 Savatga</button>
+                    <button class="btn-main" onclick="window.addToCart('${p.name}', ${p.price})">🛒 Savatga</button>
                 </div>`;
             }
         }
@@ -73,7 +72,7 @@
             for (let id in newsData) {
                 const n = newsData[id];
                 newsBox.innerHTML += `<div class="news-card">
-                    ${window.myId == adminChatId ? `<i class="fa fa-trash delete-icon" onclick="delNews('${id}')"></i>` : ''}
+                    ${window.myId == adminChatId ? `<i class="fa fa-trash delete-icon" onclick="window.delNews('${id}')"></i>` : ''}
                     <img src="${n.link}">
                     <h4>${n.title}</h4>
                     <p>${n.desc}</p>
@@ -84,7 +83,7 @@
         window.addToCart = (n, p) => {
             window.cart.push({name: n, price: p});
             document.getElementById('cart-count').innerText = window.cart.length;
-            Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+            window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
         };
 
         window.openCart = () => {
@@ -106,7 +105,7 @@
                 regSelect.innerHTML = '<option value="">Viloyat tanlang</option>';
                 for(let r in regions) regSelect.innerHTML += `<option value="${r}">${r}</option>`;
             }
-            showPage('cart-page', document.getElementById('cart-nav'));
+            window.showPage('cart-page', document.getElementById('cart-nav'));
         };
 
         window.updateDistricts = () => {
@@ -116,21 +115,49 @@
             if(reg && regions[reg]) regions[reg].forEach(d => distSelect.innerHTML += `<option value="${d}">${d}</option>`);
         };
 
+        // BUYURTMA YUBORISH (FETCH USULI BILAN)
         window.sendOrder = () => {
             const phone = document.getElementById('user-phone').value;
             const reg = document.getElementById('user-region').value;
             const dist = document.getElementById('user-district').value;
-            if(!phone || !reg || !dist) return alert("Ma'lumotlarni to'ldiring!");
 
-            let msg = "🚀 YANGI BUYURTMA:\n\n";
-            window.cart.forEach((item, i) => msg += `${i+1}. ${item.name} - ${item.price.toLocaleString()} so'm\n`);
-            msg += `\n💰 Jami: ${document.getElementById('total-price').innerText}\n📍 ${reg}, ${dist}\n📞 Tel: ${phone}`;
+            if(!phone || !reg || !dist) {
+                alert("Iltimos, ma'lumotlarni to'liq kiriting!");
+                return;
+            }
 
-            Telegram.WebApp.sendData(msg);
-            alert("Buyurtma botga yuborildi!");
-            window.cart = [];
-            document.getElementById('cart-count').innerText = 0;
-            showPage('home');
+            let orderItems = "";
+            let total = 0;
+            window.cart.forEach((item, i) => {
+                orderItems += `• ${item.name} (${Number(item.price).toLocaleString()} so'm)\n`;
+                total += Number(item.price);
+            });
+
+            const message = `📦 <b>YANGI BUYURTMA!</b>\n\n📍 <b>Manzil:</b> ${reg}, ${dist}\n📞 <b>Tel:</b> ${phone}\n\n<b>Mahsulotlar:</b>\n${orderItems}\n💰 <b>Jami:</b> ${total.toLocaleString()} so'm`;
+
+            // BOT TOKEN va ADMIN CHAT ID
+            const botToken = "7754593922:AAEq2GCH66E3V-n0WnU_v-x92S_pY8pM_pI"; 
+            const chatId = "5667696089"; 
+
+            fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: chatId,
+                    text: message,
+                    parse_mode: 'HTML'
+                })
+            }).then(res => {
+                if(res.ok) {
+                    alert("Buyurtmangiz muvaffaqiyatli yuborildi!");
+                    window.cart = [];
+                    document.getElementById('cart-count').innerText = 0;
+                    window.showPage('home');
+                    window.Telegram.WebApp.close(); 
+                } else {
+                    alert("Xatolik yuz berdi. Xabar yuborilmadi.");
+                }
+            }).catch(err => alert("Internet bilan muammo: " + err));
         };
 
         window.postNews = () => {
@@ -163,8 +190,8 @@
             }
         };
 
-        window.delNews = (id) => remove(ref(db, `news/${id}`));
-        window.delProd = (id) => remove(ref(db, `products/${id}`));
+        window.delNews = (id) => { if(confirm("O'chirilsinmi?")) remove(ref(db, `news/${id}`)); };
+        window.delProd = (id) => { if(confirm("O'chirilsinmi?")) remove(ref(db, `products/${id}`)); };
     </script>
 
     <style>
@@ -183,7 +210,7 @@
         .active-nav { color: var(--main); }
         #cart-count { position: absolute; top: 5px; right: 25%; background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; }
         .cart-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
-        .delete-icon { position: absolute; top: 10px; left: 10px; color: red; background: #fff; border-radius: 50%; padding: 5px; }
+        .delete-icon { position: absolute; top: 10px; left: 10px; color: red; background: #fff; border-radius: 50%; padding: 5px; z-index: 10; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -200,10 +227,10 @@
     <div id="cart-items-list"></div>
     <div id="cart-summary" class="admin-card" style="display:none;">
         <h3 style="text-align:right">Jami: <span id="total-price">0</span></h3>
-        <input type="tel" id="user-phone" placeholder="Telefon (901234567)">
-        <select id="user-region" onchange="updateDistricts()"></select>
+        <input type="tel" id="user-phone" placeholder="Telefon (Masalan: 991234567)">
+        <select id="user-region" onchange="window.updateDistricts()"></select>
         <select id="user-district"></select>
-        <button class="btn-main" onclick="sendOrder()">BUYURTMA BERISH</button>
+        <button class="btn-main" onclick="window.sendOrder()">BUYURTMA BERISH</button>
     </div>
 </div>
 
@@ -214,7 +241,7 @@
             <input type="text" id="news_img" placeholder="Rasm linki">
             <input type="text" id="news_title" placeholder="Sarlavha">
             <textarea id="news_desc" placeholder="Tavsif"></textarea>
-            <button class="btn-main" onclick="postNews()">Chiqarish</button>
+            <button class="btn-main" onclick="window.postNews()">Chiqarish</button>
         </div>
         <div class="admin-card">
             <h4>📦 Mahsulot qo'shish</h4>
@@ -222,27 +249,27 @@
             <input type="text" id="p_name" placeholder="Nomi">
             <input type="number" id="p_price" placeholder="Narxi">
             <select id="p_cat_select"></select>
-            <button class="btn-main" onclick="addProd()">Qo'shish</button>
+            <button class="btn-main" onclick="window.addProd()">Qo'shish</button>
         </div>
         <div class="admin-card">
             <h4>📁 Katalog ochish</h4>
             <input type="text" id="new_cat" placeholder="Nomi">
-            <button class="btn-main" onclick="addCat()" style="background:#333">Yaratish</button>
+            <button class="btn-main" onclick="window.addCat()" style="background:#333">Yaratish</button>
         </div>
     </div>
 </div>
 
 <div class="nav-bar">
-    <div class="nav-item active-nav" onclick="showPage('home', this)"><i class="fa fa-th-large"></i><br>Katalog</div>
-    <div class="nav-item" onclick="showPage('news-page', this)"><i class="fa fa-bell"></i><br>Yangiliklar</div>
-    <div id="cart-nav" class="nav-item" onclick="openCart()"><span id="cart-count">0</span><i class="fa fa-shopping-cart"></i><br>Savat</div>
-    <div id="admin-tab" class="nav-item" style="display:none;" onclick="showPage('profile', this)"><i class="fa fa-user-cog"></i><br>Admin</div>
+    <div class="nav-item active-nav" onclick="window.showPage('home', this)"><i class="fa fa-th-large"></i><br>Katalog</div>
+    <div class="nav-item" onclick="window.showPage('news-page', this)"><i class="fa fa-bell"></i><br>Yangiliklar</div>
+    <div id="cart-nav" class="nav-item" onclick="window.openCart()"><span id="cart-count">0</span><i class="fa fa-shopping-cart"></i><br>Savat</div>
+    <div id="admin-tab" class="nav-item" style="display:none;" onclick="window.showPage('profile', this)"><i class="fa fa-user-cog"></i><br>Admin</div>
 </div>
 
 <script>
     let tg = window.Telegram.WebApp;
     tg.expand();
-    window.myId = tg.initDataUnsafe.user?.id || "5667696089";
+    window.myId = tg.initDataUnsafe.user?.id || "";
     if(window.myId == "5667696089") {
         document.getElementById('admin-tab').style.display = 'block';
         document.getElementById('admin-panel').style.display = 'block';

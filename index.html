@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>INGCO Official Store</title>
+    <title>INGCO Store Admin</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
@@ -27,14 +27,15 @@
 
         window.cart = [];
 
-        // 1. MAHSULOTLAR VA KATEGORIYALAR (AVVALGI FUNKSIYALAR)
+        // MA'LUMOTLARNI REAL VAQTDA OLISH
         onValue(ref(db, '/'), (snapshot) => {
             const data = snapshot.val() || {};
-            renderUI(data.products || {}, data.categories || {});
+            renderProducts(data.products || {});
             renderNews(data.news || {});
+            updateCategorySelect(data.categories || {});
         });
 
-        // 2. YANGILIKLARNI CHIZISH
+        // 1. FAQAT YANGILIKLARNI CHIZISH
         function renderNews(newsData) {
             const newsBox = document.getElementById('news-list');
             newsBox.innerHTML = '';
@@ -43,76 +44,101 @@
                 newsBox.innerHTML += `
                     <div class="news-card">
                         ${window.myId == adminChatId ? `<i class="fa fa-trash delete-icon" onclick="delNews('${id}')"></i>` : ''}
-                        ${n.link.includes('mp4') || n.link.includes('video') ? 
-                            `<video src="${n.link}" controls style="width:100%; border-radius:10px;"></video>` : 
-                            `<img src="${n.link}" onerror="this.src='https://via.placeholder.com/300x150?text=Yangilik'">`}
+                        <img src="${n.link}" onerror="this.src='https://via.placeholder.com/300x150?text=Yangilik'">
                         <h4>${n.title}</h4>
                         <p>${n.desc}</p>
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <b style="color:#d35400;">${Number(n.price).toLocaleString()} so'm</b>
-                            <button class="btn-main" style="width:auto; padding:5px 15px;" onclick="addToCart('${n.title}', ${n.price})">🛒+Savatcha</button>
-                        </div>
                     </div>`;
             }
         }
 
-        // 3. ADMIN: YANGILIK QO'SHISH
-        window.addNews = () => {
-            const link = document.getElementById('n_link').value;
-            const title = document.getElementById('n_title').value;
-            const desc = document.getElementById('n_desc').value;
-            const price = document.getElementById('n_price').value;
-            if(link && title && desc && price) {
-                push(ref(db, 'news'), { link, title, desc, price });
-                alert("Yangilik e'lon qilindi!");
-                document.getElementById('news-form').reset();
-            } else { alert("Barcha maydonlarni to'ldiring!"); }
-        };
-
-        window.delNews = (id) => { if(confirm("O'chirish?")) remove(ref(db, `news/${id}`)); };
-
-        // --- AVVALGI FUNKSIYALARNING DAVOMI ---
-        function renderUI(products, categories) {
+        // 2. FAQAT MAHSULOTLARNI CHIZISH (KATALOG)
+        function renderProducts(products) {
             const list = document.getElementById('product-list');
             list.innerHTML = '';
             for (let id in products) {
                 const p = products[id];
-                list.innerHTML += `<div class="product-card">
-                    ${window.myId == adminChatId ? `<i class="fa fa-trash delete-icon" onclick="delProd('${id}')"></i>` : ''}
-                    <img src="${p.img}">
-                    <p class="p-name">${p.name}</p>
-                    <p class="price">${Number(p.newP).toLocaleString()} so'm</p>
-                    <button class="btn-main" onclick="addToCart('${p.name}', ${p.newP})">🛒 Savatga</button>
-                </div>`;
-            }
-            // Admin select uchun kataloglarni yangilash
-            const select = document.getElementById('p_cat');
-            if(select) {
-                select.innerHTML = '<option value="">Katalog tanlang</option>';
-                Object.values(categories).forEach(c => select.innerHTML += `<option value="${c}">${c}</option>`);
+                list.innerHTML += `
+                    <div class="product-card">
+                        ${window.myId == adminChatId ? `<i class="fa fa-trash delete-icon" onclick="delProd('${id}')"></i>` : ''}
+                        <img src="${p.img}">
+                        <p class="p-name"><b>${p.name}</b></p>
+                        <p class="price">${Number(p.price).toLocaleString()} so'm</p>
+                        <button class="btn-main" onclick="addToCart('${p.name}', ${p.price})">🛒 Savatga</button>
+                    </div>`;
             }
         }
 
+        // ADMIN: YANGILIK QO'SHISH (NARXSIZ, KATALOGSIZ)
+        window.postNews = () => {
+            const link = document.getElementById('news_img').value;
+            const title = document.getElementById('news_title').value;
+            const desc = document.getElementById('news_desc').value;
+            if(link && title && desc) {
+                push(ref(db, 'news'), { link, title, desc });
+                alert("Yangilik e'lon qilindi!");
+                document.getElementById('news-post-form').reset();
+            } else { alert("Barcha maydonlarni to'ldiring!"); }
+        };
+
+        // ADMIN: MAHSULOT QO'SHISH (NARX VA KATALOG BILAN)
+        window.addProd = () => {
+            const img = document.getElementById('p_img').value;
+            const name = document.getElementById('p_name').value;
+            const price = document.getElementById('p_price').value;
+            const cat = document.getElementById('p_cat_select').value;
+            if(img && name && price && cat) {
+                push(ref(db, 'products'), { img, name, price, category: cat });
+                alert("Mahsulot katalogga qo'shildi!");
+                document.getElementById('prod-form').reset();
+            } else { alert("Mahsulot ma'lumotlarini to'liq kiriting!"); }
+        };
+
+        window.delNews = (id) => { if(confirm("Yangilikni o'chirish?")) remove(ref(db, `news/${id}`)); };
+        window.delProd = (id) => { if(confirm("Mahsulotni o'chirish?")) remove(ref(db, `products/${id}`)); };
+        window.addCat = () => { 
+            const n = document.getElementById('new_cat').value; 
+            if(n) { push(ref(db, 'categories'), n); document.getElementById('new_cat').value = ''; alert("Katalog ochildi"); }
+        };
+
+        function updateCategorySelect(categories) {
+            const select = document.getElementById('p_cat_select');
+            select.innerHTML = '<option value="">Katalog tanlang</option>';
+            Object.values(categories).forEach(c => select.innerHTML += `<option value="${c}">${c}</option>`);
+        }
+
+        // SAVAT FUNKSIYALARI
         window.addToCart = (n, p) => {
             window.cart.push({name: n, price: p});
             document.getElementById('cart-count').innerText = window.cart.length;
             Telegram.WebApp.HapticFeedback.notificationOccurred('success');
         };
 
+        window.openCart = () => {
+            const list = document.getElementById('cart-items-list');
+            const summary = document.getElementById('cart-summary');
+            list.innerHTML = '';
+            let total = 0;
+            if(window.cart.length === 0) {
+                list.innerHTML = '<p style="text-align:center">Savat bo\'sh</p>';
+                summary.style.display = 'none';
+            } else {
+                window.cart.forEach((item, i) => {
+                    total += Number(item.price);
+                    list.innerHTML += `<div class="cart-item"><span>${item.name}</span><b>${item.price.toLocaleString()} so'm</b></div>`;
+                });
+                document.getElementById('total-price').innerText = total.toLocaleString() + " so'm";
+                summary.style.display = 'block';
+            }
+            showPage('cart-page', document.getElementById('cart-nav'));
+        };
+
         window.showPage = (id, el) => {
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
             document.getElementById(id).classList.add('active');
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active-nav'));
-            el.classList.add('active-nav');
+            if(el) el.classList.add('active-nav');
         };
-        
-        window.addCat = () => { const n = document.getElementById('new_cat').value; if(n) push(ref(db, 'categories'), n); };
-        window.addProd = () => {
-            const n = document.getElementById('p_name').value, pr = document.getElementById('p_price').value, 
-                  im = document.getElementById('p_img').value, ct = document.getElementById('p_cat').value;
-            if(n && pr && im && ct) push(ref(db, 'products'), {name:n, newP:pr, img:im, category:ct});
-        };
-        window.delProd = (id) => remove(ref(db, `products/${id}`));
+
     </script>
 
     <style>
@@ -120,69 +146,88 @@
         body { font-family: sans-serif; margin: 0; background: #f4f4f4; padding-bottom: 70px; }
         .page { display: none; padding: 15px; }
         .active { display: block; }
+        
+        /* Kartochkalar */
+        .admin-card { background: #fff; padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #ddd; }
         .news-card { background: #fff; padding: 15px; border-radius: 15px; margin-bottom: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); position: relative; }
-        .news-card img { width: 100%; border-radius: 10px; margin-bottom: 10px; }
+        .news-card img { width: 100%; border-radius: 10px; }
+        .product-card { background: #fff; padding: 10px; border-radius: 12px; text-align: center; position: relative; border: 1px solid #eee; }
+        .product-card img { width: 100%; height: 100px; object-fit: contain; }
+        
         .catalog-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .product-card { background: #fff; padding: 10px; border-radius: 12px; text-align: center; position: relative; }
-        .product-card img { width: 100%; height: 110px; object-fit: contain; }
-        .price { color: #d35400; font-weight: bold; }
-        .btn-main { background: var(--main); border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        .nav-bar { position: fixed; bottom: 0; width: 100%; background: #fff; display: flex; border-top: 1px solid #ddd; height: 65px; z-index: 1000; }
+        .btn-main { background: var(--main); border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; color: #fff; cursor: pointer; }
+        
+        input, textarea, select { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        .nav-bar { position: fixed; bottom: 0; width: 100%; background: #fff; display: flex; border-top: 1px solid #ddd; height: 65px; }
         .nav-item { flex: 1; text-align: center; padding: 10px 0; font-size: 11px; color: #888; position: relative; }
         .active-nav { color: var(--main); }
-        #cart-count { position: absolute; top: 5px; right: 20%; background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; }
-        .delete-icon { position: absolute; top: 10px; left: 10px; color: red; background: #fff; border-radius: 50%; padding: 5px; }
-        input, select, textarea { width: 100%; padding: 12px; margin: 5px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        #cart-count { position: absolute; top: 5px; right: 25%; background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; }
+        .delete-icon { position: absolute; top: 10px; left: 10px; color: red; background: #fff; border-radius: 50%; padding: 5px; z-index: 10; }
+        .cart-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #eee; background: #fff; }
     </style>
 </head>
 <body>
 
 <div id="home" class="page active">
-    <div id="category-scroll" class="category-scroll"></div>
     <div class="catalog-grid" id="product-list"></div>
 </div>
 
 <div id="news-page" class="page">
-    <h3 style="text-align:center;"><i class="fa fa-bell"></i> Yangiliklar</h3>
+    <h3 style="text-align:center;">📢 So'nggi Yangiliklar</h3>
     <div id="news-list"></div>
+</div>
+
+<div id="cart-page" class="page">
+    <h3 style="text-align:center;">🛒 Savatchangiz</h3>
+    <div id="cart-items-list"></div>
+    <div id="cart-summary" style="padding:15px; display:none;">
+        <h4>Jami: <span id="total-price">0</span> so'm</h4>
+        <button class="btn-main" onclick="alert('Buyurtma yuborildi!')">BUYURTMA BERISH</button>
+    </div>
 </div>
 
 <div id="profile" class="page">
     <div id="admin-panel" style="display:none;">
-        <div style="background:#fff; padding:15px; border-radius:15px; border:2px solid var(--main);">
-            <h4>📢 Yangilik e'lon qilish</h4>
-            <form id="news-form">
-                <input type="text" id="n_link" placeholder="Rasm yoki Video linki">
-                <input type="text" id="n_title" placeholder="Sarlavha (Tavar nomi)">
-                <textarea id="n_desc" placeholder="Tavar haqida batafsil ma'lumot"></textarea>
-                <input type="number" id="n_price" placeholder="Narxi">
-                <button type="button" class="btn-main" onclick="addNews()">E'LON QILISH</button>
+        <div class="admin-card">
+            <h4 style="color: #e67e22;">📢 Yangilik e'lon qilish</h4>
+            <form id="news-post-form">
+                <input type="text" id="news_img" placeholder="Yangilik rasm linki">
+                <input type="text" id="news_title" placeholder="Yangilik sarlavhasi">
+                <textarea id="news_desc" placeholder="Yangilik haqida batafsil..."></textarea>
+                <button type="button" class="btn-main" onclick="postNews()">YANGILIKNI CHIQARISH</button>
             </form>
         </div>
-        <hr>
-        <h3>📁 Katalog & 📦 Tavar</h3>
-        <input type="text" id="new_cat" placeholder="Katalog nomi">
-        <button class="btn-main" onclick="addCat()">Katalog Qo'shish</button>
-        <hr>
-        <select id="p_cat"></select>
-        <input type="text" id="p_img" placeholder="Tavar Rasm URL">
-        <input type="text" id="p_name" placeholder="Tavar Nomi">
-        <input type="number" id="p_price" placeholder="Narxi">
-        <button class="btn-main" onclick="addProd()">Tavar Qo'shish</button>
+
+        <div class="admin-card">
+            <h4 style="color: #2980b9;">📦 Katalogga tavar qo'shish</h4>
+            <form id="prod-form">
+                <input type="text" id="p_img" placeholder="Tavar rasm linki">
+                <input type="text" id="p_name" placeholder="Tavar nomi">
+                <input type="number" id="p_price" placeholder="Narxi">
+                <select id="p_cat_select"></select>
+                <button type="button" class="btn-main" style="background:#2980b9;" onclick="addProd()">TAVARNI QO'SHISH</button>
+            </form>
+        </div>
+
+        <div class="admin-card">
+            <h4>📁 Yangi Katalog yaratish</h4>
+            <input type="text" id="new_cat" placeholder="Katalog nomi">
+            <button class="btn-main" style="background:#2c3e50;" onclick="addCat()">KATALOGNI OCHISH</button>
+        </div>
     </div>
 </div>
 
 <div class="nav-bar">
     <div class="nav-item active-nav" onclick="showPage('home', this)"><i class="fa fa-th-large"></i><br>Katalog</div>
     <div class="nav-item" onclick="showPage('news-page', this)"><i class="fa fa-bell"></i><br>Yangiliklar</div>
-    <div class="nav-item" onclick="alert('Savatga o\'ting')"><span id="cart-count">0</span><i class="fa fa-shopping-cart"></i><br>Savat</div>
+    <div class="nav-item" id="cart-nav" onclick="openCart()"><span id="cart-count">0</span><i class="fa fa-shopping-cart"></i><br>Savat</div>
     <div class="nav-item" id="admin-tab" style="display:none;" onclick="showPage('profile', this)"><i class="fa fa-user-cog"></i><br>Admin</div>
 </div>
 
 <script>
     let tg = window.Telegram.WebApp;
     tg.expand();
-    window.myId = tg.initDataUnsafe.user?.id || "AdminTest";
+    window.myId = tg.initDataUnsafe.user?.id || "5667696089";
     if(window.myId == "5667696089") {
         document.getElementById('admin-tab').style.display = 'block';
         document.getElementById('admin-panel').style.display = 'block';

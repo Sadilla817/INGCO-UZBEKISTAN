@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>INGCO Store Admin</title>
+    <title>INGCO Store</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
@@ -26,87 +26,61 @@
         const adminChatId = "5667696089";
 
         window.cart = [];
+        
+        // O'zbekiston viloyat va tumanlari
+        const regions = {
+            "Toshkent sh.": ["Yunusobod", "Chilonzor", "Mirzo Ulug'bek", "Olmazor", "Sergeli", "Yakkasaroy", "Bektemir", "Mirobod", "Uchtepa", "Shayxontohur", "Yashnobod"],
+            "Toshkent vil.": ["Angren", "Chirchiq", "Olmaliq", "Bekobod", "Yangiyo'l", "Qibray", "Zangiota", "Parkent"],
+            "Andijon": ["Andijon sh.", "Asaka", "Shahrixon", "Xo'jaobod", "Paxtaobod", "Izboskan", "Marhamat"],
+            "Farg'ona": ["Farg'ona sh.", "Qo'qon", "Marg'ilon", "Quva", "Rishton", "Bog'dod", "Oltiariq"],
+            "Namangan": ["Namangan sh.", "Chust", "Kosonsoy", "Uychi", "Pop", "Uchqo'rg'on", "To'raqo'rg'on"],
+            "Samarqand": ["Samarqand sh.", "Kattaqo'rg'on", "Urgut", "Bulung'ur", "Narpay", "Ishtixon", "Payariq"],
+            "Buxoro": ["Buxoro sh.", "Gijduvon", "Kogon", "Olot", "Qorako'l", "Vobkent", "Shofirkon"],
+            "Xorazm": ["Urganch sh.", "Xiva", "Gurlan", "Bog'ot", "Shovot", "Xonqa", "Hazorasp"],
+            "Navoiy": ["Navoiy sh.", "Zarafshon", "Karmana", "Qiziltepa", "Xatirchi", "Nurota"],
+            "Qashqadaryo": ["Qarshi sh.", "Shahrisabz", "Kitob", "Koson", "Muborak", "G'uzor", "Chiroqchi"],
+            "Surxondaryo": ["Termiz sh.", "Denov", "Sherobod", "Jarqo'rg'on", "Sho'rchi", "Sariosiyo"],
+            "Jizzax": ["Jizzax sh.", "Zomin", "G'allaorol", "Do'stlik", "Paxtakor", "Mirzachul"],
+            "Sirdaryo": ["Guliston sh.", "Yangiyer", "Shirin", "Sardoba", "Boyovut", "Sayhunobod"],
+            "Qoraqalpog'iston": ["Nukus sh.", "Xo'jayli", "Qo'ng'irot", "Beruniy", "To'rtko'l", "Amudaryo"]
+        };
 
-        // MA'LUMOTLARNI REAL VAQTDA OLISH
         onValue(ref(db, '/'), (snapshot) => {
             const data = snapshot.val() || {};
             renderProducts(data.products || {});
             renderNews(data.news || {});
-            updateCategorySelect(data.categories || {});
+            updateAdminSelects(data.categories || {});
         });
 
-        // 1. FAQAT YANGILIKLARNI CHIZISH
-        function renderNews(newsData) {
-            const newsBox = document.getElementById('news-list');
-            newsBox.innerHTML = '';
-            for (let id in newsData) {
-                const n = newsData[id];
-                newsBox.innerHTML += `
-                    <div class="news-card">
-                        ${window.myId == adminChatId ? `<i class="fa fa-trash delete-icon" onclick="delNews('${id}')"></i>` : ''}
-                        <img src="${n.link}" onerror="this.src='https://via.placeholder.com/300x150?text=Yangilik'">
-                        <h4>${n.title}</h4>
-                        <p>${n.desc}</p>
-                    </div>`;
-            }
-        }
-
-        // 2. FAQAT MAHSULOTLARNI CHIZISH (KATALOG)
         function renderProducts(products) {
             const list = document.getElementById('product-list');
             list.innerHTML = '';
             for (let id in products) {
                 const p = products[id];
-                list.innerHTML += `
-                    <div class="product-card">
-                        ${window.myId == adminChatId ? `<i class="fa fa-trash delete-icon" onclick="delProd('${id}')"></i>` : ''}
-                        <img src="${p.img}">
-                        <p class="p-name"><b>${p.name}</b></p>
-                        <p class="price">${Number(p.price).toLocaleString()} so'm</p>
-                        <button class="btn-main" onclick="addToCart('${p.name}', ${p.price})">🛒 Savatga</button>
-                    </div>`;
+                list.innerHTML += `<div class="product-card">
+                    ${window.myId == adminChatId ? `<i class="fa fa-trash delete-icon" onclick="delProd('${id}')"></i>` : ''}
+                    <img src="${p.img}">
+                    <p><b>${p.name}</b></p>
+                    <p class="price">${Number(p.price).toLocaleString()} so'm</p>
+                    <button class="btn-main" onclick="addToCart('${p.name}', ${p.price})">🛒 Savatga</button>
+                </div>`;
             }
         }
 
-        // ADMIN: YANGILIK QO'SHISH (NARXSIZ, KATALOGSIZ)
-        window.postNews = () => {
-            const link = document.getElementById('news_img').value;
-            const title = document.getElementById('news_title').value;
-            const desc = document.getElementById('news_desc').value;
-            if(link && title && desc) {
-                push(ref(db, 'news'), { link, title, desc });
-                alert("Yangilik e'lon qilindi!");
-                document.getElementById('news-post-form').reset();
-            } else { alert("Barcha maydonlarni to'ldiring!"); }
-        };
-
-        // ADMIN: MAHSULOT QO'SHISH (NARX VA KATALOG BILAN)
-        window.addProd = () => {
-            const img = document.getElementById('p_img').value;
-            const name = document.getElementById('p_name').value;
-            const price = document.getElementById('p_price').value;
-            const cat = document.getElementById('p_cat_select').value;
-            if(img && name && price && cat) {
-                push(ref(db, 'products'), { img, name, price, category: cat });
-                alert("Mahsulot katalogga qo'shildi!");
-                document.getElementById('prod-form').reset();
-            } else { alert("Mahsulot ma'lumotlarini to'liq kiriting!"); }
-        };
-
-        window.delNews = (id) => { if(confirm("Yangilikni o'chirish?")) remove(ref(db, `news/${id}`)); };
-        window.delProd = (id) => { if(confirm("Mahsulotni o'chirish?")) remove(ref(db, `products/${id}`)); };
-        window.addCat = () => { 
-            const n = document.getElementById('new_cat').value; 
-            if(n) { push(ref(db, 'categories'), n); document.getElementById('new_cat').value = ''; alert("Katalog ochildi"); }
-        };
-
-        function updateCategorySelect(categories) {
-            const select = document.getElementById('p_cat_select');
-            select.innerHTML = '<option value="">Katalog tanlang</option>';
-            Object.values(categories).forEach(c => select.innerHTML += `<option value="${c}">${c}</option>`);
+        function renderNews(newsData) {
+            const newsBox = document.getElementById('news-list');
+            newsBox.innerHTML = '';
+            for (let id in newsData) {
+                const n = newsData[id];
+                newsBox.innerHTML += `<div class="news-card">
+                    ${window.myId == adminChatId ? `<i class="fa fa-trash delete-icon" onclick="delNews('${id}')"></i>` : ''}
+                    <img src="${n.link}">
+                    <h4>${n.title}</h4>
+                    <p>${n.desc}</p>
+                </div>`;
+            }
         }
 
-        // SAVAT FUNKSIYALARI
         window.addToCart = (n, p) => {
             window.cart.push({name: n, price: p});
             document.getElementById('cart-count').innerText = window.cart.length;
@@ -116,54 +90,100 @@
         window.openCart = () => {
             const list = document.getElementById('cart-items-list');
             const summary = document.getElementById('cart-summary');
+            const regSelect = document.getElementById('user-region');
             list.innerHTML = '';
             let total = 0;
             if(window.cart.length === 0) {
-                list.innerHTML = '<p style="text-align:center">Savat bo\'sh</p>';
+                list.innerHTML = '<p style="text-align:center; padding:20px;">Savatchangiz bo\'sh</p>';
                 summary.style.display = 'none';
             } else {
-                window.cart.forEach((item, i) => {
+                window.cart.forEach((item) => {
                     total += Number(item.price);
                     list.innerHTML += `<div class="cart-item"><span>${item.name}</span><b>${item.price.toLocaleString()} so'm</b></div>`;
                 });
                 document.getElementById('total-price').innerText = total.toLocaleString() + " so'm";
                 summary.style.display = 'block';
+                regSelect.innerHTML = '<option value="">Viloyat tanlang</option>';
+                for(let r in regions) regSelect.innerHTML += `<option value="${r}">${r}</option>`;
             }
             showPage('cart-page', document.getElementById('cart-nav'));
+        };
+
+        window.updateDistricts = () => {
+            const reg = document.getElementById('user-region').value;
+            const distSelect = document.getElementById('user-district');
+            distSelect.innerHTML = '<option value="">Tuman tanlang</option>';
+            if(reg && regions[reg]) regions[reg].forEach(d => distSelect.innerHTML += `<option value="${d}">${d}</option>`);
+        };
+
+        window.sendOrder = () => {
+            const phone = document.getElementById('user-phone').value;
+            const reg = document.getElementById('user-region').value;
+            const dist = document.getElementById('user-district').value;
+            if(!phone || !reg || !dist) return alert("Ma'lumotlarni to'ldiring!");
+
+            let msg = "🚀 YANGI BUYURTMA:\n\n";
+            window.cart.forEach((item, i) => msg += `${i+1}. ${item.name} - ${item.price.toLocaleString()} so'm\n`);
+            msg += `\n💰 Jami: ${document.getElementById('total-price').innerText}\n📍 ${reg}, ${dist}\n📞 Tel: ${phone}`;
+
+            Telegram.WebApp.sendData(msg);
+            alert("Buyurtma botga yuborildi!");
+            window.cart = [];
+            document.getElementById('cart-count').innerText = 0;
+            showPage('home');
+        };
+
+        window.postNews = () => {
+            const link = document.getElementById('news_img').value;
+            const title = document.getElementById('news_title').value;
+            const desc = document.getElementById('news_desc').value;
+            if(link && title && desc) push(ref(db, 'news'), { link, title, desc });
+            alert("Yangilik chiqdi!");
+        };
+
+        window.addProd = () => {
+            const img = document.getElementById('p_img').value, name = document.getElementById('p_name').value;
+            const price = document.getElementById('p_price').value, cat = document.getElementById('p_cat_select').value;
+            if(img && name && price && cat) push(ref(db, 'products'), { img, name, price, category: cat });
+            alert("Mahsulot qo'shildi!");
+        };
+
+        window.updateAdminSelects = (cats) => {
+            const s = document.getElementById('p_cat_select');
+            s.innerHTML = '<option value="">Katalog tanlang</option>';
+            Object.values(cats).forEach(c => s.innerHTML += `<option value="${c}">${c}</option>`);
         };
 
         window.showPage = (id, el) => {
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
             document.getElementById(id).classList.add('active');
-            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active-nav'));
-            if(el) el.classList.add('active-nav');
+            if(el) {
+                document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active-nav'));
+                el.classList.add('active-nav');
+            }
         };
 
+        window.delNews = (id) => remove(ref(db, `news/${id}`));
+        window.delProd = (id) => remove(ref(db, `products/${id}`));
     </script>
 
     <style>
         :root { --main: #f39c12; }
-        body { font-family: sans-serif; margin: 0; background: #f4f4f4; padding-bottom: 70px; }
+        body { font-family: sans-serif; margin: 0; background: #f4f4f4; padding-bottom: 80px; }
         .page { display: none; padding: 15px; }
         .active { display: block; }
-        
-        /* Kartochkalar */
-        .admin-card { background: #fff; padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #ddd; }
-        .news-card { background: #fff; padding: 15px; border-radius: 15px; margin-bottom: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); position: relative; }
-        .news-card img { width: 100%; border-radius: 10px; }
-        .product-card { background: #fff; padding: 10px; border-radius: 12px; text-align: center; position: relative; border: 1px solid #eee; }
-        .product-card img { width: 100%; height: 100px; object-fit: contain; }
-        
+        .admin-card, .news-card, .product-card { background: #fff; border-radius: 12px; margin-bottom: 15px; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); position: relative; }
+        img { width: 100%; height: 160px; object-fit: contain; border-radius: 8px; }
         .catalog-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .btn-main { background: var(--main); border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; color: #fff; cursor: pointer; }
-        
-        input, textarea, select { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        .price { color: #d35400; font-weight: bold; }
+        .btn-main { background: var(--main); border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; color: white; cursor: pointer; margin-top: 10px; }
+        input, select, textarea { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
         .nav-bar { position: fixed; bottom: 0; width: 100%; background: #fff; display: flex; border-top: 1px solid #ddd; height: 65px; }
         .nav-item { flex: 1; text-align: center; padding: 10px 0; font-size: 11px; color: #888; position: relative; }
         .active-nav { color: var(--main); }
         #cart-count { position: absolute; top: 5px; right: 25%; background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; }
-        .delete-icon { position: absolute; top: 10px; left: 10px; color: red; background: #fff; border-radius: 50%; padding: 5px; z-index: 10; }
-        .cart-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #eee; background: #fff; }
+        .cart-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+        .delete-icon { position: absolute; top: 10px; left: 10px; color: red; background: #fff; border-radius: 50%; padding: 5px; }
     </style>
 </head>
 <body>
@@ -173,46 +193,41 @@
 </div>
 
 <div id="news-page" class="page">
-    <h3 style="text-align:center;">📢 So'nggi Yangiliklar</h3>
     <div id="news-list"></div>
 </div>
 
 <div id="cart-page" class="page">
-    <h3 style="text-align:center;">🛒 Savatchangiz</h3>
     <div id="cart-items-list"></div>
-    <div id="cart-summary" style="padding:15px; display:none;">
-        <h4>Jami: <span id="total-price">0</span> so'm</h4>
-        <button class="btn-main" onclick="alert('Buyurtma yuborildi!')">BUYURTMA BERISH</button>
+    <div id="cart-summary" class="admin-card" style="display:none;">
+        <h3 style="text-align:right">Jami: <span id="total-price">0</span></h3>
+        <input type="tel" id="user-phone" placeholder="Telefon (901234567)">
+        <select id="user-region" onchange="updateDistricts()"></select>
+        <select id="user-district"></select>
+        <button class="btn-main" onclick="sendOrder()">BUYURTMA BERISH</button>
     </div>
 </div>
 
 <div id="profile" class="page">
     <div id="admin-panel" style="display:none;">
         <div class="admin-card">
-            <h4 style="color: #e67e22;">📢 Yangilik e'lon qilish</h4>
-            <form id="news-post-form">
-                <input type="text" id="news_img" placeholder="Yangilik rasm linki">
-                <input type="text" id="news_title" placeholder="Yangilik sarlavhasi">
-                <textarea id="news_desc" placeholder="Yangilik haqida batafsil..."></textarea>
-                <button type="button" class="btn-main" onclick="postNews()">YANGILIKNI CHIQARISH</button>
-            </form>
+            <h4>📢 Yangilik qo'shish</h4>
+            <input type="text" id="news_img" placeholder="Rasm linki">
+            <input type="text" id="news_title" placeholder="Sarlavha">
+            <textarea id="news_desc" placeholder="Tavsif"></textarea>
+            <button class="btn-main" onclick="postNews()">Chiqarish</button>
         </div>
-
         <div class="admin-card">
-            <h4 style="color: #2980b9;">📦 Katalogga tavar qo'shish</h4>
-            <form id="prod-form">
-                <input type="text" id="p_img" placeholder="Tavar rasm linki">
-                <input type="text" id="p_name" placeholder="Tavar nomi">
-                <input type="number" id="p_price" placeholder="Narxi">
-                <select id="p_cat_select"></select>
-                <button type="button" class="btn-main" style="background:#2980b9;" onclick="addProd()">TAVARNI QO'SHISH</button>
-            </form>
+            <h4>📦 Mahsulot qo'shish</h4>
+            <input type="text" id="p_img" placeholder="Rasm linki">
+            <input type="text" id="p_name" placeholder="Nomi">
+            <input type="number" id="p_price" placeholder="Narxi">
+            <select id="p_cat_select"></select>
+            <button class="btn-main" onclick="addProd()">Qo'shish</button>
         </div>
-
         <div class="admin-card">
-            <h4>📁 Yangi Katalog yaratish</h4>
-            <input type="text" id="new_cat" placeholder="Katalog nomi">
-            <button class="btn-main" style="background:#2c3e50;" onclick="addCat()">KATALOGNI OCHISH</button>
+            <h4>📁 Katalog ochish</h4>
+            <input type="text" id="new_cat" placeholder="Nomi">
+            <button class="btn-main" onclick="addCat()" style="background:#333">Yaratish</button>
         </div>
     </div>
 </div>
@@ -220,8 +235,8 @@
 <div class="nav-bar">
     <div class="nav-item active-nav" onclick="showPage('home', this)"><i class="fa fa-th-large"></i><br>Katalog</div>
     <div class="nav-item" onclick="showPage('news-page', this)"><i class="fa fa-bell"></i><br>Yangiliklar</div>
-    <div class="nav-item" id="cart-nav" onclick="openCart()"><span id="cart-count">0</span><i class="fa fa-shopping-cart"></i><br>Savat</div>
-    <div class="nav-item" id="admin-tab" style="display:none;" onclick="showPage('profile', this)"><i class="fa fa-user-cog"></i><br>Admin</div>
+    <div id="cart-nav" class="nav-item" onclick="openCart()"><span id="cart-count">0</span><i class="fa fa-shopping-cart"></i><br>Savat</div>
+    <div id="admin-tab" class="nav-item" style="display:none;" onclick="showPage('profile', this)"><i class="fa fa-user-cog"></i><br>Admin</div>
 </div>
 
 <script>

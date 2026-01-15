@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>INGCO Store Pro</title>
+    <title>INGCO Store Pro Control</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -12,6 +12,7 @@
         .page { display: none; padding: 10px; }
         .active { display: block; }
         
+        /* Katalog va Grid */
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .card { background: #fff; border-radius: 12px; padding: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); position: relative; display: flex; flex-direction: column; margin-bottom: 10px; }
         .card img { width: 100%; height: 110px; object-fit: contain; background: #f9f9f9; border-radius: 8px; margin-bottom: 8px; }
@@ -20,20 +21,26 @@
         .p-desc { font-size: 11px; color: #666; margin: 5px 0; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3; height: 72px; }
         .p-price { color: #d35400; font-weight: bold; font-size: 14px; margin-bottom: 8px; }
         
-        .btn-add { background: var(--main); border: none; padding: 10px; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 12px; }
+        .btn-add { background: var(--main); border: none; padding: 10px; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 12px; margin-top: 5px; }
+
+        /* Admin tugmalari */
+        .admin-controls { position: absolute; top: 5px; right: 5px; display: flex; gap: 5px; z-index: 20; }
+        .ctrl-btn { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; border: none; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .edit-btn { background: #3498db; color: white; }
+        .del-btn { background: #e74c3c; color: white; }
 
         .nav-bar { position: fixed; bottom: 0; width: 100%; background: #fff; display: flex; border-top: 1px solid #ddd; height: 65px; z-index: 1000; }
         .nav-item { flex: 1; text-align: center; padding: 10px 0; font-size: 11px; color: #888; position: relative; cursor: pointer; }
         .active-nav { color: var(--main); }
         .badge { position: absolute; top: 5px; right: 25%; background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; }
         
-        .delete-btn { position: absolute; top: 5px; left: 5px; color: red; background: white; border-radius: 50%; padding: 5px; font-size: 12px; box-shadow: 0 0 5px rgba(0,0,0,0.2); z-index: 10; }
-        input, select, textarea { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        input, select, textarea { width: 100%; padding: 12px; margin: 5px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 14px; }
         
-        /* Yangiliklar stili */
-        .news-card { background: white; border-radius: 12px; overflow: hidden; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .news-card { background: white; border-radius: 12px; overflow: hidden; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); position: relative; }
         .news-card img { width: 100%; height: 200px; object-fit: cover; }
-        .news-content { padding: 15px; }
+        .news-content { padding: 15px; font-size: 14px; line-height: 1.5; }
+        
+        #edit-indicator { background: #e1f5fe; padding: 10px; border-radius: 8px; margin-bottom: 10px; border-left: 5px solid #03a9f4; display: none; }
     </style>
 </head>
 <body>
@@ -44,16 +51,16 @@
 </div>
 
 <div id="news-page" class="page">
-    <h3>Yangiliklar va Aksiyalar</h3>
+    <h3>Yangiliklar</h3>
     <div id="news-list"></div>
 </div>
 
 <div id="cart-page" class="page">
-    <h3>Savatchangiz</h3>
+    <h3>Savat</h3>
     <div id="cart-list"></div>
     <div id="order-form" style="display:none; margin-top:15px;">
         <h4 style="text-align:right">Jami: <span id="total-price">0</span></h4>
-        <input type="tel" id="u-phone" placeholder="Telefon (Masalan: 991234567)">
+        <input type="tel" id="u-phone" placeholder="Telefon: 991234567">
         <select id="u-region" onchange="window.updateCities()"></select>
         <select id="u-city"></select>
         <button class="btn-add" onclick="window.sendOrder()" style="padding:15px; font-size: 16px;">BUYURTMA BERISH</button>
@@ -61,30 +68,33 @@
 </div>
 
 <div id="admin-page" class="page">
+    <div id="edit-indicator">
+        <strong>Tahrirlash rejimi:</strong> Ma'lumotlarni o'zgartirib "Saqlash" tugmasini bosing.
+        <button onclick="window.cancelEdit()" style="float:right; border:none; background:none; color:red;">Bekor qilish</button>
+    </div>
+
     <div class="card">
-        <h4>📁 Katalog / 📦 Mahsulot Qo'shish</h4>
-        <button class="btn-add" onclick="window.toggleAdminForm('cat-form')">Katalog qo'shish</button>
-        <div id="cat-form" style="display:none; margin-top:10px;">
-            <input type="text" id="c-img" placeholder="Katalog rasm linki">
-            <input type="text" id="c-name" placeholder="Katalog nomi">
-            <button class="btn-add" onclick="window.saveCat()">Saqlash</button>
-        </div>
-        <button class="btn-add" style="margin-top:10px;" onclick="window.toggleAdminForm('prod-form')">Mahsulot qo'shish</button>
-        <div id="prod-form" style="display:none; margin-top:10px;">
-            <input type="text" id="p-img" placeholder="Mahsulot rasm linki">
-            <input type="text" id="p-name" placeholder="Nomi">
-            <textarea id="p-desc" placeholder="Tavsif (Max 25 ta so'z)"></textarea>
-            <input type="number" id="p-price" placeholder="Narxi">
-            <select id="p-cat-select"></select>
-            <button class="btn-add" onclick="window.saveProd()">Saqlash</button>
-        </div>
+        <h4>📦 Mahsulot Boshqaruvi</h4>
+        <input type="text" id="p-img" placeholder="Rasm linki">
+        <input type="text" id="p-name" placeholder="Mahsulot nomi">
+        <textarea id="p-desc" rows="6" placeholder="Tavsif (Bu yerda hamma so'zlar ko'rinadi)"></textarea>
+        <input type="number" id="p-price" placeholder="Narxi">
+        <select id="p-cat-select"></select>
+        <button id="p-save-btn" class="btn-add" onclick="window.saveProd()">Mahsulotni Saqlash</button>
     </div>
     
     <div class="card" style="margin-top:15px;">
-        <h4>📢 Yangilik qo'shish</h4>
-        <input type="text" id="n-img" placeholder="Yangilik rasm linki">
-        <textarea id="n-text" placeholder="Yangilik matni"></textarea>
-        <button class="btn-add" onclick="window.saveNews()">Yangilikni chiqarish</button>
+        <h4>📁 Katalog Qo'shish</h4>
+        <input type="text" id="c-img" placeholder="Rasm linki">
+        <input type="text" id="c-name" placeholder="Katalog nomi">
+        <button class="btn-add" onclick="window.saveCat()">Katalogni Saqlash</button>
+    </div>
+
+    <div class="card" style="margin-top:15px;">
+        <h4>📢 Yangiliklar</h4>
+        <input type="text" id="n-img" placeholder="Rasm linki">
+        <textarea id="n-text" rows="4" placeholder="Yangilik matni"></textarea>
+        <button id="n-save-btn" class="btn-add" onclick="window.saveNews()">Yangilikni Saqlash</button>
     </div>
 </div>
 
@@ -97,7 +107,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getDatabase, ref, push, onValue, remove, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyB7mIOGY-bdNLVTzflXOl3t9bDLaQiLbKs",
@@ -111,23 +121,8 @@
     const adminChatId = "5667696089"; 
     const botToken = "8546147813:AAHiZp8z236sJAwfItgM4yUFyijaMBHBP6U";
 
-    const regions = {
-        "Toshkent sh.": ["Yunusobod", "Chilonzor", "Mirzo Ulug'bek", "Olmazor", "Sergeli", "Yakkasaroy", "Bektemir", "Mirobod", "Uchtepa", "Shayxontohur", "Yashnobod"],
-        "Toshkent vil.": ["Chirchiq", "Angren", "Olmaliq", "Bekobod", "G'azalkent", "Yangiyo'l"],
-        "Andijon": ["Andijon sh.", "Asaka", "Shahrixon", "Xonobod", "Paxtaobod"],
-        "Farg'ona": ["Farg'ona sh.", "Qo'qon", "Marg'ilon", "Quva", "Rishton"],
-        "Namangan": ["Namangan sh.", "Chust", "Kosonsoy", "Uychi"],
-        "Samarqand": ["Samarqand sh.", "Kattaqo'rg'on", "Urgut", "Jomboy"],
-        "Buxoro": ["Buxoro sh.", "G'ijduvon", "Kogon"],
-        "Xorazm": ["Urganch", "Xiva", "Gurlan"],
-        "Navoiy": ["Navoiy sh.", "Zarafshon", "Karmana"],
-        "Qashqadaryo": ["Qarshi", "Shahrisabz", "Kitob"],
-        "Surxondaryo": ["Termiz", "Denov", "Sherobod"],
-        "Jizzax": ["Jizzax sh.", "Zomin", "G'allaorol"],
-        "Sirdaryo": ["Guliston", "Yangiyer", "Sirdaryo sh."]
-    };
-
-    let products = {}, cats = {}, news = {}, cart = [];
+    const regions = { "Toshkent sh.": ["Yunusobod", "Chilonzor", "Mirzo Ulug'bek", "Olmazor", "Sergeli"], "Andijon": ["Andijon sh.", "Asaka"], "Farg'ona": ["Farg'ona sh.", "Qo'qon"] };
+    let products = {}, cats = {}, news = {}, cart = [], editId = null, editType = null;
 
     onValue(ref(db, '/'), (snap) => {
         const data = snap.val() || {};
@@ -143,30 +138,27 @@
 
     window.showHome = () => {
         window.showPage('home', 'btn-h');
-        document.getElementById('page-title').innerText = "Kataloglar";
-        const g = document.getElementById('main-grid');
-        g.innerHTML = '';
+        const g = document.getElementById('main-grid'); g.innerHTML = '';
         for(let id in cats) {
             g.innerHTML += `<div class="card" onclick="window.openCat('${cats[id].name}')">
-                ${window.myId == adminChatId ? `<i class="fa fa-trash delete-btn" onclick="event.stopPropagation(); window.delItem('categories/${id}')"></i>` : ''}
-                <img src="${cats[id].img}">
-                <p style="text-align:center; font-weight:bold; margin:0;">${cats[id].name}</p>
+                ${window.myId == adminChatId ? `<div class="admin-controls"><button class="ctrl-btn del-btn" onclick="event.stopPropagation(); window.delItem('categories/${id}')"><i class="fa fa-trash"></i></button></div>` : ''}
+                <img src="${cats[id].img}"><p style="text-align:center; font-weight:bold; margin:0;">${cats[id].name}</p>
             </div>`;
         }
     };
 
     window.openCat = (catName) => {
-        document.getElementById('page-title').innerHTML = `<span onclick="window.showHome()" style="color:var(--main); cursor:pointer">← Ortga</span> | ${catName}`;
-        const g = document.getElementById('main-grid');
-        g.innerHTML = '';
+        document.getElementById('page-title').innerHTML = `<span onclick="window.showHome()" style="color:var(--main); cursor:pointer">←</span> ${catName}`;
+        const g = document.getElementById('main-grid'); g.innerHTML = '';
         for(let id in products) {
             if(products[id].category == catName) {
                 const p = products[id];
                 g.innerHTML += `<div class="card">
-                    ${window.myId == adminChatId ? `<i class="fa fa-trash delete-btn" onclick="event.stopPropagation(); window.delItem('products/${id}')"></i>` : ''}
-                    <img src="${p.img}">
-                    <p class="p-name">${p.name}</p>
-                    <p class="p-desc">${p.desc || ''}</p>
+                    ${window.myId == adminChatId ? `<div class="admin-controls">
+                        <button class="ctrl-btn edit-btn" onclick="window.editItem('products', '${id}')"><i class="fa fa-pen"></i></button>
+                        <button class="ctrl-btn del-btn" onclick="window.delItem('products/${id}')"><i class="fa fa-trash"></i></button>
+                    </div>` : ''}
+                    <img src="${p.img}"><p class="p-name">${p.name}</p><p class="p-desc">${p.desc || ''}</p>
                     <p class="p-price">${Number(p.price).toLocaleString()} so'm</p>
                     <button class="btn-add" onclick="window.addCart('${id}')">🛒 Savatga</button>
                 </div>`;
@@ -176,92 +168,91 @@
 
     window.loadNews = () => {
         window.showPage('news-page', 'btn-n');
-        const l = document.getElementById('news-list');
-        l.innerHTML = '';
+        const l = document.getElementById('news-list'); l.innerHTML = '';
         for(let id in news) {
             l.innerHTML += `<div class="news-card">
-                ${window.myId == adminChatId ? `<i class="fa fa-trash delete-btn" onclick="window.delItem('news/${id}')"></i>` : ''}
-                <img src="${news[id].img}">
-                <div class="news-content"><p>${news[id].text}</p></div>
+                ${window.myId == adminChatId ? `<div class="admin-controls">
+                    <button class="ctrl-btn edit-btn" onclick="window.editItem('news', '${id}')"><i class="fa fa-pen"></i></button>
+                    <button class="ctrl-btn del-btn" onclick="window.delItem('news/${id}')"><i class="fa fa-trash"></i></button>
+                </div>` : ''}
+                <img src="${news[id].img}"><div class="news-content"><p>${news[id].text}</p></div>
             </div>`;
         }
     };
 
-    window.addCart = (id) => {
-        cart.push(products[id]);
-        document.getElementById('c-count').innerText = cart.length;
-    };
-
-    window.showCart = () => {
-        window.showPage('cart-page', 'btn-c');
-        const l = document.getElementById('cart-list');
-        l.innerHTML = ''; let total = 0;
-        if(cart.length == 0) {
-            l.innerHTML = '<p style="text-align:center; padding:30px;">Savat bo\'sh</p>';
-            document.getElementById('order-form').style.display = 'none';
-        } else {
-            cart.forEach((p, i) => {
-                total += Number(p.price);
-                l.innerHTML += `<div style="display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid #ddd;">
-                    <span>${p.name}</span><b>${Number(p.price).toLocaleString()} <i class="fa fa-trash" style="color:red" onclick="window.removeCart(${i})"></i></b>
-                </div>`;
-            });
-            document.getElementById('total-price').innerText = total.toLocaleString() + " so'm";
-            document.getElementById('order-form').style.display = 'block';
-            const r = document.getElementById('u-region');
-            r.innerHTML = '<option value="">Viloyat tanlang</option>';
-            for(let key in regions) r.innerHTML += `<option value="${key}">${key}</option>`;
+    window.editItem = (type, id) => {
+        editId = id; editType = type;
+        window.showPage('admin-page', 'btn-a');
+        document.getElementById('edit-indicator').style.display = 'block';
+        if(type === 'products') {
+            const p = products[id];
+            document.getElementById('p-img').value = p.img;
+            document.getElementById('p-name').value = p.name;
+            document.getElementById('p-desc').value = p.desc;
+            document.getElementById('p-price').value = p.price;
+            document.getElementById('p-cat-select').value = p.category;
+        } else if(type === 'news') {
+            const n = news[id];
+            document.getElementById('n-img').value = n.img;
+            document.getElementById('n-text').value = n.text;
         }
     };
 
-    window.updateCities = () => {
-        const r = document.getElementById('u-region').value;
-        const c = document.getElementById('u-city');
-        c.innerHTML = '<option value="">Tuman tanlang</option>';
-        if(regions[r]) regions[r].forEach(city => c.innerHTML += `<option value="${city}">${city}</option>`);
-    };
-
-    window.saveNews = () => {
-        const img = document.getElementById('n-img').value;
-        const text = document.getElementById('n-text').value;
-        if(img && text) push(ref(db, 'news'), {img, text});
-    };
-
-    window.saveCat = () => {
-        const n = document.getElementById('c-name').value;
-        const i = document.getElementById('c-img').value;
-        if(n && i) push(ref(db, 'categories'), {name: n, img: i});
+    window.cancelEdit = () => {
+        editId = null; editType = null;
+        document.getElementById('edit-indicator').style.display = 'none';
+        document.querySelectorAll('input, textarea').forEach(el => el.value = '');
     };
 
     window.saveProd = () => {
-        const n = document.getElementById('p-name').value;
-        const i = document.getElementById('p-img').value;
-        const p = document.getElementById('p-price').value;
-        const d = document.getElementById('p-desc').value;
-        const c = document.getElementById('p-cat-select').value;
-        if(n && i && p && c) push(ref(db, 'products'), {name: n, img: i, price: p, desc: d, category: c});
+        const data = { img: document.getElementById('p-img').value, name: document.getElementById('p-name').value, desc: document.getElementById('p-desc').value, price: document.getElementById('p-price').value, category: document.getElementById('p-cat-select').value };
+        if(editType === 'products' && editId) {
+            update(ref(db, `products/${editId}`), data).then(() => { alert("Yangilandi!"); window.cancelEdit(); });
+        } else {
+            push(ref(db, 'products'), data);
+        }
+    };
+
+    window.saveNews = () => {
+        const data = { img: document.getElementById('n-img').value, text: document.getElementById('n-text').value };
+        if(editType === 'news' && editId) {
+            update(ref(db, `news/${editId}`), data).then(() => { alert("Yangilandi!"); window.cancelEdit(); });
+        } else {
+            push(ref(db, 'news'), data);
+        }
+    };
+
+    window.saveCat = () => {
+        const n = document.getElementById('c-name').value, i = document.getElementById('c-img').value;
+        if(n && i) push(ref(db, 'categories'), {name: n, img: i});
+    };
+
+    window.addCart = (id) => { cart.push(products[id]); document.getElementById('c-count').innerText = cart.length; };
+    window.showCart = () => {
+        window.showPage('cart-page', 'btn-c');
+        const l = document.getElementById('cart-list'); l.innerHTML = ''; let total = 0;
+        cart.forEach((p, i) => { total += Number(p.price); l.innerHTML += `<div style="display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid #ddd;"><span>${p.name}</span><b>${Number(p.price).toLocaleString()} <i class="fa fa-trash" style="color:red" onclick="window.removeCart(${i})"></i></b></div>`; });
+        document.getElementById('total-price').innerText = total.toLocaleString() + " so'm";
+        document.getElementById('order-form').style.display = cart.length ? 'block' : 'none';
+        const r = document.getElementById('u-region'); r.innerHTML = '<option value="">Viloyat</option>';
+        for(let key in regions) r.innerHTML += `<option value="${key}">${key}</option>`;
+    };
+
+    window.updateCities = () => {
+        const r = document.getElementById('u-region').value, c = document.getElementById('u-city');
+        c.innerHTML = '<option value="">Tuman</option>';
+        if(regions[r]) regions[r].forEach(city => c.innerHTML += `<option value="${city}">${city}</option>`);
     };
 
     window.sendOrder = () => {
-        const ph = document.getElementById('u-phone').value;
-        const rg = document.getElementById('u-region').value;
-        const ct = document.getElementById('u-city').value;
-        if(!ph || !rg || !ct) return alert("To'liq to'ldiring!");
+        const ph = document.getElementById('u-phone').value, rg = document.getElementById('u-region').value, ct = document.getElementById('u-city').value;
         let txt = `📦 BUYURTMA!\nTel: ${ph}\nManzil: ${rg}, ${ct}\n\n`;
         cart.forEach(p => txt += `• ${p.name}\n`);
-        fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({chat_id: adminChatId, text: txt})
-        }).then(() => { alert("Yuborildi!"); cart = []; location.reload(); });
+        fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({chat_id: adminChatId, text: txt}) }).then(() => { alert("Yuborildi!"); cart = []; location.reload(); });
     };
 
     window.removeCart = (i) => { cart.splice(i, 1); window.showCart(); };
     window.delItem = (path) => confirm("O'chirilsinmi?") && remove(ref(db, path));
-    window.toggleAdminForm = (id) => {
-        const el = document.getElementById(id);
-        el.style.display = el.style.display === 'none' ? 'block' : 'none';
-    };
     window.showPage = (id, btnId) => {
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         document.getElementById(id).classList.add('active');

@@ -16,7 +16,7 @@
         .catalog-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .price { color: #d35400; font-weight: bold; }
         .btn-main { background: var(--main); border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; color: white; cursor: pointer; margin-top: 10px; text-decoration: none; display: block; text-align: center; }
-        .btn-link { background: #3498db; margin-top: 10px; } /* Yangilik tugmasi uchun ko'k rang */
+        .btn-link { background: #3498db; margin-top: 10px; }
         input, select, textarea { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
         .nav-bar { position: fixed; bottom: 0; width: 100%; background: #fff; display: flex; border-top: 1px solid #ddd; height: 65px; z-index: 1000; }
         .nav-item { flex: 1; text-align: center; padding: 10px 0; font-size: 11px; color: #888; position: relative; }
@@ -54,7 +54,7 @@
             <input type="text" id="news_img" placeholder="Rasm linki">
             <input type="text" id="news_title" placeholder="Sarlavha">
             <textarea id="news_desc" placeholder="Tavsif"></textarea>
-            <input type="text" id="news_action_link" placeholder="Kirish tugmasi uchun link (ixtiyoriy)">
+            <input type="text" id="news_action_link" placeholder="Kirish tugmasi uchun link">
             <button class="btn-main" onclick="window.postNews()">Chiqarish</button>
         </div>
         <div class="admin-card">
@@ -98,6 +98,23 @@
     const db = getDatabase(app);
     const adminChatId = "5667696089";
 
+    const regions = {
+        "Toshkent sh.": ["Yunusobod", "Chilonzor", "Mirzo Ulug'bek", "Olmazor", "Sergeli", "Yakkasaroy", "Bektemir", "Mirobod", "Uchtepa", "Shayxontohur", "Yashnobod"],
+        "Toshkent vil.": ["Angren", "Chirchiq", "Olmaliq", "Bekobod", "Yangiyo'l", "Qibray", "Zangiota", "Parkent", "Bo'ka", "Chinoz", "Piskent", "O'rtachirchiq", "Quyichirchiq"],
+        "Andijon": ["Andijon sh.", "Asaka", "Shahrixon", "Xo'jaobod", "Paxtaobod", "Izboskan", "Marhamat", "Baliqchi", "Bo'z", "Buloqboshi", "Qo'rg'ontepa"],
+        "Farg'ona": ["Farg'ona sh.", "Qo'qon", "Marg'ilon", "Quva", "Rishton", "Bog'dod", "Oltiariq", "Besharik", "Uchko'prik", "Yozyovon"],
+        "Namangan": ["Namangan sh.", "Chust", "Kosonsoy", "Uychi", "Pop", "Uchqo'rg'on", "To'raqo'rg'on", "Norin", "Yangiqo'rg'on"],
+        "Samarqand": ["Samarqand sh.", "Kattaqo'rg'on", "Urgut", "Bulung'ur", "Narpay", "Ishtixon", "Payariq", "Pastdarg'om", "Toyloq", "Oqdaryo"],
+        "Buxoro": ["Buxoro sh.", "Gijduvon", "Kogon", "Olot", "Qorako'l", "Vobkent", "Shofirkon", "Peshku", "Qorovulbozor"],
+        "Xorazm": ["Urganch sh.", "Xiva", "Gurlan", "Bog'ot", "Shovot", "Xonqa", "Hazorasp", "Qo'shko'pir", "Yangiariq"],
+        "Navoiy": ["Navoiy sh.", "Zarafshon", "Karmana", "Qiziltepa", "Xatirchi", "Nurota", "Uchquduq", "Konimex"],
+        "Qashqadaryo": ["Qarshi sh.", "Shahrisabz", "Kitob", "Koson", "Muborak", "G'uzor", "Chiroqchi", "Dehqonobod", "Kasbi", "Nishon", "Qamashi"],
+        "Surxondaryo": ["Termiz sh.", "Denov", "Sherobod", "Jarqo'rg'on", "Sho'rchi", "Sariosiyo", "Angor", "Boysun", "Muzrabot", "Uzun"],
+        "Jizzax": ["Jizzax sh.", "Zomin", "G'allaorol", "Do'stlik", "Paxtakor", "Mirzachul", "Arnasoy", "Baxmal", "Forish"],
+        "Sirdaryo": ["Guliston sh.", "Yangiyer", "Shirin", "Sardoba", "Boyovut", "Sayhunobod", "Oqoltin", "Xovos"],
+        "Qoraqalpog'iston": ["Nukus sh.", "Xo'jayli", "Qo'ng'irot", "Beruniy", "To'rtko'l", "Amudaryo", "Kegeyli", "Mo'ynoq", "Chimboy"]
+    };
+
     onValue(ref(db, '/'), (snapshot) => {
         const data = snapshot.val() || {};
         renderProducts(data.products || {});
@@ -136,7 +153,6 @@
         }
     }
 
-    // Savat, Buyurtma va boshqa funksiyalar (o'zgarishsiz)
     window.addToCart = (n, p) => {
         window.cart.push({name: n, price: p});
         document.getElementById('cart-count').innerText = window.cart.length;
@@ -146,6 +162,7 @@
     window.openCart = () => {
         const list = document.getElementById('cart-items-list');
         const summary = document.getElementById('cart-summary');
+        const regSelect = document.getElementById('user-region');
         list.innerHTML = ''; let total = 0;
         if(window.cart.length === 0) {
             list.innerHTML = '<p style="text-align:center; padding:20px;">Savatchangiz bo\'sh</p>';
@@ -157,24 +174,44 @@
             });
             document.getElementById('total-price').innerText = total.toLocaleString() + " so'm";
             summary.style.display = 'block';
-            const regSelect = document.getElementById('user-region');
             regSelect.innerHTML = '<option value="">Viloyat tanlang</option>';
-            const regions = {"Toshkent sh.": ["Yunusobod", "Chilonzor"], "Andijon": ["Andijon sh."], "Farg'ona": ["Farg'ona sh."]}; // Qisqartirildi, sizdagini ishlatavering
             for(let r in regions) regSelect.innerHTML += `<option value="${r}">${r}</option>`;
         }
         window.showPage('cart-page', document.getElementById('cart-nav'));
     };
 
+    window.updateDistricts = () => {
+        const reg = document.getElementById('user-region').value;
+        const distSelect = document.getElementById('user-district');
+        distSelect.innerHTML = '<option value="">Tuman tanlang</option>';
+        if(reg && regions[reg]) regions[reg].forEach(d => distSelect.innerHTML += `<option value="${d}">${d}</option>`);
+    };
+
     window.sendOrder = () => {
         const phone = document.getElementById('user-phone').value;
         const reg = document.getElementById('user-region').value;
-        if(!phone || !reg) { alert("Ma'lumotlar to'liq emas!"); return; }
-        const token = "8266243140:AAGjo_Ehr-lSAg5RaVFDehli-eAQdn9Jkzo";
-        fetch(`@INGCOBUYURTMABOT${token}/sendMessage`, {
+        const dist = document.getElementById('user-district').value;
+        if(!phone || !reg || !dist || window.cart.length === 0) { alert("Ma'lumotlar to'liq emas!"); return; }
+
+        let items = ""; let total = 0;
+        window.cart.forEach(i => { items += `• ${i.name} (${i.price.toLocaleString()})\n`; total += i.price; });
+        const msg = `📦 ZAKAZ!\n\n📍 ${reg}, ${dist}\n📞 ${phone}\n\n${items}\n💰 Jami: ${total.toLocaleString()} so'm`;
+
+        const token = "8546147813:AAHiZp8z236sJAwfItgM4yUFyijaMBHBP6U"; 
+        
+        fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({chat_id: adminChatId, text: `📦 Yangi zakaz!\n📞 ${phone}\n📍 ${reg}`})
-        }).then(res => { if(res.ok) { alert("Yuborildi!"); window.cart = []; location.reload(); } });
+            body: JSON.stringify({chat_id: adminChatId, text: msg})
+        }).then(res => {
+            if(res.ok) { 
+                alert("Buyurtma yuborildi!"); 
+                window.cart = []; 
+                location.reload(); 
+            } else { 
+                alert("Xato! Botga /start bosganmisiz?"); 
+            }
+        });
     };
 
     window.postNews = () => {
@@ -182,14 +219,8 @@
         const title = document.getElementById('news_title').value;
         const desc = document.getElementById('news_desc').value;
         const actionLink = document.getElementById('news_action_link').value;
-        if(link && title && desc) {
-            push(ref(db, 'news'), { link, title, desc, actionLink });
-            alert("Yangilik qo'shildi!");
-            document.getElementById('news_img').value = '';
-            document.getElementById('news_title').value = '';
-            document.getElementById('news_desc').value = '';
-            document.getElementById('news_action_link').value = '';
-        }
+        if(link && title && desc) push(ref(db, 'news'), { link, title, desc, actionLink });
+        alert("Yangilik qo'shildi!");
     };
 
     window.addProd = () => {
@@ -203,7 +234,7 @@
 
     window.addCat = () => {
         const name = document.getElementById('new_cat').value;
-        if(name) { push(ref(db, 'categories'), name); alert("Katalog yaratildi!"); }
+        if(name) { push(ref(db, 'categories'), name); alert("Katalog ochildi!"); }
     };
 
     window.updateAdminSelects = (cats) => {

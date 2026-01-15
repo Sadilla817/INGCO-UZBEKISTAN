@@ -170,7 +170,7 @@
         const reg = document.getElementById('user-region').value;
         if(!phone || !reg) { alert("Ma'lumotlar to'liq emas!"); return; }
         const token = "8266243140:AAGjo_Ehr-lSAg5RaVFDehli-eAQdn9Jkzo";
-        fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        fetch(`@INGCOBUYURTMABOT${token}/sendMessage`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({chat_id: adminChatId, text: `📦 Yangi zakaz!\n📞 ${phone}\n📍 ${reg}`})
